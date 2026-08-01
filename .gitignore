@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Pi runtime data must never be copied into this repository.
+auth.json
+trust.json
+models-store.json
+sessions/
+npm/
+git/
+bin/
+pi-crash.log
