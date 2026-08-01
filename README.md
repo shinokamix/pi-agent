@@ -6,7 +6,7 @@ The repository excludes credentials, sessions, trust decisions, caches, and othe
 
 ## Included
 
-- `calm-mode` and `pretty-response` extensions
+- `calm-mode`, `pretty-response`, and isolated `researcher` extensions
 - [`writing-clearly-and-concisely`](https://github.com/obra/the-elements-of-style) skill
 - Global instructions from [`AGENTS.md`](./AGENTS.md)
 - Portable settings from [`config/settings.json`](./config/settings.json)

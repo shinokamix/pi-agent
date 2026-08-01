@@ -13,7 +13,7 @@
   },
   "scripts": {
     "check": "npm run typecheck && npm test",
-    "test": "node --experimental-transform-types --test extensions/calm-mode/*.test.ts extensions/pretty-response/*.test.ts",
+    "test": "node --experimental-transform-types --test extensions/calm-mode/*.test.ts extensions/pretty-response/*.test.ts extensions/researcher/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -24,12 +24,14 @@
     "@earendil-works/pi-coding-agent": "0.83.0",
     "@earendil-works/pi-tui": "0.83.0",
     "@types/node": "^24.0.0",
+    "typebox": "^1.3.9",
     "typescript": "^5.9.0"
   },
   "pi": {
     "extensions": [
       "./extensions/calm-mode",
-      "./extensions/pretty-response"
+      "./extensions/pretty-response",
+      "./extensions/researcher"
     ],
     "skills": [
       "./skills"
