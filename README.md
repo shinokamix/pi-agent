@@ -1,72 +1,72 @@
-# pi-agent
+# Personal Pi setup
 
-Personal setup for [Pi](https://pi.dev), distributed as a native Pi package.
+A portable, version-controlled [Pi](https://pi.dev) setup with extensions, skills, prompts, themes, global instructions, and selected settings.
+
+The repository excludes credentials, sessions, trust decisions, caches, and other machine-specific data.
 
 ## Included
 
-- `calm-mode` — Streaming Zen transcript, activity indicator, and compact footer.
-- `pretty-response` — compact assistant Markdown rendering.
-- Portable personal settings for model, reasoning level, and UI.
-- Global personal instructions in [`AGENTS.md`](./AGENTS.md).
+- `calm-mode` and `pretty-response` extensions
+- [`writing-clearly-and-concisely`](https://github.com/obra/the-elements-of-style) skill
+- Global instructions from [`AGENTS.md`](./AGENTS.md)
+- Portable settings from [`config/settings.json`](./config/settings.json)
 
-Credentials, trust decisions, sessions, caches, and crash logs are never stored here.
+## Install
 
-## Regular installation
+### Pi package
 
-Install only the Pi package resources (extensions, skills, prompts, and themes):
+Install extensions, skills, prompts, and themes:
 
 ```bash
 pi install git:github.com/shinokamix/pi-agent
 ```
 
-This does not replace global instructions or personal settings and does not install companion packages.
-
-For development from a local checkout:
+From a local checkout, install the current directory:
 
 ```bash
-pi install ~/Documents/projects/pi-agent
+pi install .
 ```
 
-Pi loads resources directly from the checkout. After editing an extension, run `/reload`.
+Run `/reload` after changing package resources.
 
-## Full personal installation
+### Full setup
 
-Clone the repository and run the setup script:
+Clone the repository and run:
 
 ```bash
-git clone https://github.com/shinokamix/pi-agent.git \
-  ~/Documents/projects/pi-agent
-cd ~/Documents/projects/pi-agent
+git clone https://github.com/shinokamix/pi-agent.git
+cd pi-agent
 ./scripts/setup.sh
 ```
 
-The setup script:
+The script backs up and merges settings, links `AGENTS.md`, installs the local Pi package, and installs `npm:@narumitw/pi-usage`.
 
-1. backs up and merges portable settings into `~/.pi/agent/settings.json`;
-2. links the repository's `AGENTS.md` as the global Pi context file;
-3. backs up legacy copies of `calm-mode` and `pretty-response` to avoid loading duplicates;
-4. installs this checkout as a local Pi package;
-5. installs `npm:@narumitw/pi-usage` separately.
+## Sync settings
 
-It never copies or modifies `auth.json`, sessions, or trust decisions.
-
-## Settings workflow
-
-Capture portable settings changed through `/settings`:
+Save portable changes made through `/settings`:
 
 ```bash
 ./scripts/capture.sh
 git diff -- config/settings.json
 ```
 
-Apply tracked settings after pulling changes on another machine:
+Apply tracked settings after pulling changes:
 
 ```bash
-git pull
 ./scripts/apply.sh
 ```
 
-Runtime-owned and machine-specific fields such as `lastChangelogVersion`, package paths, session directories, proxies, and shell prefixes are not captured.
+Run these commands from the repository root.
+
+## Update
+
+Update a Git-installed package:
+
+```bash
+pi update --extensions
+```
+
+For a local installation, pull the checkout and run `./scripts/apply.sh`.
 
 ## Development
 
@@ -75,30 +75,4 @@ npm install
 npm run check
 ```
 
-Typical workflow:
-
-```bash
-# Edit files in extensions/
-/reload
-npm run check
-git add .
-git commit
-```
-
-Both UI extensions patch private Pi TUI components. Run the checks after every Pi upgrade and verify rendering interactively, especially in a narrow terminal.
-
-## Updating
-
-A regular Git package installation is updated by Pi:
-
-```bash
-pi update --extensions
-```
-
-A full personal/local installation is updated from its working checkout:
-
-```bash
-cd ~/Documents/projects/pi-agent
-git pull
-./scripts/apply.sh
-```
+The UI extensions patch private Pi TUI components. After a Pi upgrade, run the checks and verify the interface in a narrow terminal.
