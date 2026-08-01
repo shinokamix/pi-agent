@@ -1,9 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import {
-  Markdown,
-  truncateToWidth,
-  type Component,
-} from "@earendil-works/pi-tui";
+import type { Component } from "@earendil-works/pi-tui";
+import { realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -24,10 +22,27 @@ type AssistantPrototype = {
   updateContent(this: AssistantInstance, message: unknown): void;
 };
 
-type MarkdownRender = (this: Markdown, width: number) => string[];
+type MarkdownInstance = Component & { paddingX?: number };
+type MarkdownRender = (this: MarkdownInstance, width: number) => string[];
+type MarkdownConstructor = {
+  new (...args: unknown[]): MarkdownInstance;
+  prototype: MarkdownInstance & { render: MarkdownRender };
+};
+type TruncateToWidth = (
+  text: string,
+  maxWidth: number,
+  ellipsis?: string,
+) => string;
 type AssistantUpdate = AssistantPrototype["updateContent"];
 
+type RuntimeModules = {
+  Markdown: MarkdownConstructor;
+  truncateToWidth: TruncateToWidth;
+  assistantPrototype?: AssistantPrototype;
+};
+
 type PatchRecord = {
+  Markdown: MarkdownConstructor;
   markdownRender: MarkdownRender;
   patchedMarkdownRender: MarkdownRender;
   assistantPrototype?: AssistantPrototype;
@@ -89,29 +104,65 @@ function formatAssistantLine(
   return removeVisibleRange(line, leadingSpaces, heading[0].length);
 }
 
-async function loadAssistantPrototype(): Promise<
-  AssistantPrototype | undefined
-> {
+function runtimeDistDirectory(): string {
+  const executable = process.argv[1];
+  if (executable) {
+    try {
+      const directory = dirname(realpathSync(executable));
+      if (directory.endsWith(join("pi-coding-agent", "dist"))) return directory;
+    } catch {
+      // Fall back to normal module resolution outside the pi CLI.
+    }
+  }
+
+  return dirname(
+    fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent")),
+  );
+}
+
+async function loadRuntimeModules(): Promise<RuntimeModules | undefined> {
   try {
-    const codingAgentEntry = fileURLToPath(
-      import.meta.resolve("@earendil-works/pi-coding-agent"),
+    const codingAgentDist = runtimeDistDirectory();
+    const codingAgentEntry = join(codingAgentDist, "index.js");
+    const tuiEntry = createRequire(codingAgentEntry).resolve(
+      "@earendil-works/pi-tui",
     );
-    const moduleUrl = pathToFileURL(
-      join(
-        dirname(codingAgentEntry),
-        "modes/interactive/components/assistant-message.js",
-      ),
-    ).href;
-    const module = (await import(moduleUrl)) as {
-      AssistantMessageComponent?: { prototype?: AssistantPrototype };
+    const [tuiModule, assistantModule] = await Promise.all([
+      import(pathToFileURL(tuiEntry).href) as Promise<{
+        Markdown?: MarkdownConstructor;
+        truncateToWidth?: TruncateToWidth;
+      }>,
+      import(
+        pathToFileURL(
+          join(
+            codingAgentDist,
+            "modes/interactive/components/assistant-message.js",
+          ),
+        ).href
+      ) as Promise<{
+        AssistantMessageComponent?: { prototype?: AssistantPrototype };
+      }>,
+    ]);
+
+    if (
+      typeof tuiModule.Markdown !== "function" ||
+      typeof tuiModule.truncateToWidth !== "function"
+    ) {
+      return undefined;
+    }
+
+    return {
+      Markdown: tuiModule.Markdown,
+      truncateToWidth: tuiModule.truncateToWidth,
+      assistantPrototype:
+        typeof assistantModule.AssistantMessageComponent?.prototype
+          ?.updateContent === "function"
+          ? assistantModule.AssistantMessageComponent.prototype
+          : undefined,
     };
-    const prototype = module.AssistantMessageComponent?.prototype;
-    return typeof prototype?.updateContent === "function"
-      ? prototype
-      : undefined;
   } catch (error) {
     console.warn(
-      `[pretty-response] Assistant renderer is unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      `[pretty-response] Runtime renderer is unavailable: ${error instanceof Error ? error.message : String(error)}`,
     );
     return undefined;
   }
@@ -121,13 +172,14 @@ async function installPatch(): Promise<void> {
   const state = globalThis as GlobalPatchState;
   if (state[PATCH_KEY]) return;
 
-  const markdownPrototype = Markdown.prototype as typeof Markdown.prototype & {
-    render: MarkdownRender;
-  };
-  const markdownRender = markdownPrototype.render;
+  const runtime = await loadRuntimeModules();
+  if (!runtime) return;
+
+  const { Markdown, truncateToWidth, assistantPrototype } = runtime;
+  const markdownRender = Markdown.prototype.render;
   const patchedMarkdownRender: MarkdownRender = function (width) {
     const lines = markdownRender.call(this, width);
-    const paddingX = (this as unknown as { paddingX?: number }).paddingX ?? 0;
+    const paddingX = this.paddingX ?? 0;
     const formattedLines = markedMarkdown.has(this)
       ? lines.flatMap((line) => {
           const formatted = formatAssistantLine(line, paddingX);
@@ -139,12 +191,15 @@ async function installPatch(): Promise<void> {
       truncateToWidth(line, Math.max(0, width), ""),
     );
   };
-  markdownPrototype.render = patchedMarkdownRender;
+  Markdown.prototype.render = patchedMarkdownRender;
 
-  const record: PatchRecord = { markdownRender, patchedMarkdownRender };
+  const record: PatchRecord = {
+    Markdown,
+    markdownRender,
+    patchedMarkdownRender,
+  };
   state[PATCH_KEY] = record;
 
-  const assistantPrototype = await loadAssistantPrototype();
   if (!assistantPrototype) return;
 
   const assistantUpdate = assistantPrototype.updateContent;
@@ -177,11 +232,8 @@ function uninstallPatch(): void {
   const record = state[PATCH_KEY];
   if (!record) return;
 
-  const markdownPrototype = Markdown.prototype as typeof Markdown.prototype & {
-    render: MarkdownRender;
-  };
-  if (markdownPrototype.render === record.patchedMarkdownRender) {
-    markdownPrototype.render = record.markdownRender;
+  if (record.Markdown.prototype.render === record.patchedMarkdownRender) {
+    record.Markdown.prototype.render = record.markdownRender;
   }
 
   if (

@@ -13,7 +13,7 @@
   },
   "scripts": {
     "check": "npm run typecheck && npm test",
-    "test": "node --experimental-transform-types --test extensions/calm-mode/*.test.ts",
+    "test": "node --experimental-transform-types --test extensions/calm-mode/*.test.ts extensions/pretty-response/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
