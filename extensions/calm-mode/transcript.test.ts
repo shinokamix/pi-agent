@@ -3,8 +3,11 @@ import test from "node:test";
 import {
   appendIntermediateSeparator,
   appendUserMessageSpacing,
+  isFinalAssistantResponse,
   isVisuallyEmpty,
+  prependFinalAnswerMarker,
   shouldRenderAssistant,
+  shouldRenderToolInCalmMode,
   trimVisuallyEmptyEdges,
 } from "./transcript.ts";
 
@@ -67,6 +70,33 @@ test("adds a muted separator after intermediate assistant messages", () => {
     ),
     ["Final"],
   );
+});
+
+test("marks only final assistant answers", () => {
+  const finalMessage = {
+    content: [{ type: "text", text: "Final answer" }],
+    stopReason: "stop",
+  };
+  assert.equal(isFinalAssistantResponse(finalMessage), true);
+  assert.equal(
+    isFinalAssistantResponse({
+      content: [{ type: "text", text: "Progress" }, { type: "toolCall" }],
+      stopReason: "toolUse",
+    }),
+    false,
+  );
+  assert.deepEqual(prependFinalAnswerMarker(["", "Final answer", ""], finalMessage, 12), [
+    "",
+    "\x1b[2m── answer\x1b[22m",
+    "",
+    "Final answer",
+  ]);
+});
+
+test("Calm Mode keeps researcher visible and hides ordinary tools", () => {
+  assert.equal(shouldRenderToolInCalmMode("researcher"), true);
+  assert.equal(shouldRenderToolInCalmMode("read"), false);
+  assert.equal(shouldRenderToolInCalmMode(undefined), false);
 });
 
 test("assistant render policy supports Streaming Zen scenarios", () => {

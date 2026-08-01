@@ -10,7 +10,7 @@
 - Limits each run to eight searches and twelve fetched pages.
 - Blocks local and private-network URLs and caps fetched content.
 - Reports child-model usage to Pi.
-- Shows compact live progress; expand the tool result for the full brief.
+- Shows compact live progress in normal and Calm Mode; expand the tool result for the full brief.
 
 Set `PI_RESEARCHER_MODEL` to choose another child model. If `BRAVE_SEARCH_API_KEY` is set, search uses the Brave Search API; otherwise it falls back to DuckDuckGo HTML search.
 

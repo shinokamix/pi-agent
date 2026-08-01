@@ -16,8 +16,15 @@ export type AssistantRenderMessage = {
 };
 
 type ToolExecutionPrototype = {
+  toolName?: string;
   render(width: number): string[];
 };
+
+const CALM_VISIBLE_TOOLS = new Set(["researcher"]);
+
+export function shouldRenderToolInCalmMode(toolName: string | undefined): boolean {
+  return toolName !== undefined && CALM_VISIBLE_TOOLS.has(toolName);
+}
 
 type UserMessagePrototype = {
   render(width: number): string[];
@@ -94,6 +101,36 @@ function isIntermediateAssistant(
     message?.stopReason === "toolUse" ||
     message?.content?.some((content) => content.type === "toolCall"),
   );
+}
+
+export function isFinalAssistantResponse(
+  message: AssistantRenderMessage | undefined,
+): boolean {
+  const hasText = message?.content?.some(
+    (content) => content.type === "text" && Boolean(content.text?.trim()),
+  );
+  return Boolean(
+    hasText &&
+      message?.stopReason !== "toolUse" &&
+      message?.stopReason !== "pending" &&
+      message?.stopReason !== "error" &&
+      message?.stopReason !== "aborted",
+  );
+}
+
+export function prependFinalAnswerMarker(
+  lines: string[],
+  message: AssistantRenderMessage | undefined,
+  width: number,
+): string[] {
+  if (lines.length === 0 || width <= 0 || !isFinalAssistantResponse(message)) {
+    return lines;
+  }
+
+  const markerText = width < 3
+    ? "─".repeat(width)
+    : `── ${"answer".slice(0, Math.max(0, width - 3))}`;
+  return ["", `\x1b[2m${markerText}\x1b[22m`, "", ...trimVisuallyEmptyEdges(lines)];
 }
 
 export function appendIntermediateSeparator(
@@ -229,7 +266,9 @@ export async function installTranscriptPatch(
       this: ToolExecutionPrototype,
       width,
     ) {
-      return record.enabled ? [] : originalToolRender.call(this, width);
+      return record.enabled && !shouldRenderToolInCalmMode(this.toolName)
+        ? []
+        : originalToolRender.call(this, width);
     };
     record.toolPrototype = toolPrototype;
     record.originalToolRender = originalToolRender;
@@ -256,13 +295,21 @@ export async function installTranscriptPatch(
     const originalAssistantRender = assistantPrototype.render;
     const patchedAssistantRender: AssistantMessagePrototype["render"] =
       function (this: AssistantMessagePrototype, width) {
-        if (!record.enabled) return originalAssistantRender.call(this, width);
+        const originalLines = originalAssistantRender.call(this, width);
+        if (!record.enabled) {
+          return prependFinalAnswerMarker(
+            originalLines,
+            this.lastMessage,
+            width,
+          );
+        }
         if (!shouldRenderAssistant(this.lastMessage)) return [];
-        return appendIntermediateSeparator(
-          trimVisuallyEmptyEdges(originalAssistantRender.call(this, width)),
+        const calmLines = appendIntermediateSeparator(
+          trimVisuallyEmptyEdges(originalLines),
           this.lastMessage,
           width,
         );
+        return prependFinalAnswerMarker(calmLines, this.lastMessage, width);
       };
     record.assistantPrototype = assistantPrototype;
     record.originalAssistantRender = originalAssistantRender;
