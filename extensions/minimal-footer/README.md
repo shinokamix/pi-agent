@@ -1,5 +1,5 @@
 # Minimal Footer
 
-A single-line Pi footer showing the current model, thinking level, context usage, and display mode.
+A single-line Pi footer showing the model, thinking level, context usage, and extension statuses.
 
-The footer listens for mode changes from the `display-modes` extension. It does not alter the transcript or working indicator.
+The extension reads statuses from Pi's standard footer API. It has no dependency on Display Modes and does not change the transcript or working indicator.

@@ -1,21 +1,23 @@
 # Display Modes
 
-A Pi extension with three display modes:
+Controls how much of the Pi transcript appears:
 
-- **Normal** shows Pi's full transcript.
-- **Calm** shows assistant progress and subagent tools, but hides ordinary tool rows.
-- **Zen** shows only the user's request and the final assistant response.
+- **Normal** shows all transcript blocks.
+- **Calm** shows assistant messages and subagent tools.
+- **Zen** shows the user's request and final response.
 
-Pi's standard working indicator remains visible in every mode. Assistant lines are formatted through Pi's public transcript decorator, without patching private renderers. The separate `minimal-footer` extension shows the current mode alongside model and context information.
+Change modes with:
 
-Use `/mode normal`, `/mode calm`, or `/mode zen`. Running `/mode` without a valid mode shows the current value.
+```text
+/mode normal
+/mode calm
+/mode zen
+```
 
-The selected mode is stored in `~/.pi/agent/display-mode.json`. `PI_CODING_AGENT_DIR` overrides the parent directory.
+An invalid value reports the current mode. Pi stores the selection in `~/.pi/agent/display-mode.json`; `PI_CODING_AGENT_DIR` changes the parent directory.
 
-The extension uses the transcript-presentation API from the pinned local Pi fork. Install it with:
+The extension keeps Pi's working indicator and publishes the active mode through `ctx.ui.setStatus()`. It requires the local transcript-presentation patch:
 
 ```bash
 ./scripts/setup-pi-fork.sh
 ```
-
-Run checks with `npm run check`.
