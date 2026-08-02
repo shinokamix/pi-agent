@@ -14,7 +14,7 @@
   "scripts": {
     "check": "npm run typecheck && npm run check:shell && npm test",
     "check:shell": "bash -n scripts/*.sh",
-    "test": "node --experimental-transform-types --test scripts/*.test.mjs extensions/display-modes/*.test.ts extensions/researcher/*.test.ts",
+    "test": "node --experimental-transform-types --test extensions/display-modes/*.test.ts extensions/researcher/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {

@@ -430,12 +430,24 @@ index c6db8c3..0e6951f 100644
  		setWidget(key: string, content: unknown, options?: ExtensionWidgetOptions): void {
  			// Only support string arrays in RPC mode - factory functions are ignored
  			if (content === undefined || Array.isArray(content)) {
+diff --git a/packages/coding-agent/test/suite/regressions/5943-session-start-notify.test.ts b/packages/coding-agent/test/suite/regressions/5943-session-start-notify.test.ts
+index 6e9c8ec..6fcc2c0 100644
+--- a/packages/coding-agent/test/suite/regressions/5943-session-start-notify.test.ts
++++ b/packages/coding-agent/test/suite/regressions/5943-session-start-notify.test.ts
+@@ -21,6 +21,7 @@ function createUiContext(
+ 		setWorkingVisible: () => {},
+ 		setWorkingIndicator: () => {},
+ 		setHiddenThinkingLabel: () => {},
++		setTranscriptPresentation: () => {},
+ 		setWidget: () => {},
+ 		setFooter: () => {},
+ 		setHeader: () => {},
 diff --git a/packages/coding-agent/test/transcript-container.test.ts b/packages/coding-agent/test/transcript-container.test.ts
 new file mode 100644
-index 0000000..4f2749d
+index 0000000..749ccc4
 --- /dev/null
 +++ b/packages/coding-agent/test/transcript-container.test.ts
-@@ -0,0 +1,130 @@
+@@ -0,0 +1,134 @@
 +import type { Component } from "@earendil-works/pi-tui";
 +import { describe, expect, it } from "vitest";
 +import type { TranscriptBlock } from "../src/core/extensions/types.ts";
@@ -448,7 +460,11 @@ index 0000000..4f2749d
 +initTheme("dark");
 +
 +class Plain implements Component {
-+	constructor(private readonly lines: string[]) {}
++	private readonly lines: string[];
++
++	constructor(lines: string[]) {
++		this.lines = lines;
++	}
 +
 +	render(): string[] {
 +		return [...this.lines];
