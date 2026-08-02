@@ -1,8 +1,9 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import type { DisplayMode } from "../display-modes/display.ts";
 
 export type FooterState = {
-  enabled: boolean;
+  mode: DisplayMode;
   modelId: string;
   thinkingLevel: string;
   contextPercent: number | null;
@@ -10,7 +11,6 @@ export type FooterState = {
 
 export type FooterController = {
   requestRender(): void;
-  dispose(): void;
 };
 
 function fitDetails(
@@ -47,9 +47,6 @@ export function installFooter(
     requestRender(): void {
       requestFooterRender?.();
     },
-    dispose(): void {
-      requestFooterRender = undefined;
-    },
   };
 
   ctx.ui.setFooter((tui, theme) => {
@@ -58,7 +55,9 @@ export function installFooter(
 
     return {
       dispose(): void {
-        if (requestFooterRender === requestRender) controller.dispose();
+        if (requestFooterRender === requestRender) {
+          requestFooterRender = undefined;
+        }
       },
       invalidate() {},
       render(width: number): string[] {
@@ -68,21 +67,18 @@ export function installFooter(
           state.contextPercent == null
             ? "?%"
             : `${Math.round(Math.max(0, Math.min(100, state.contextPercent)))}%`;
-        const contextColor =
-          state.contextPercent != null && state.contextPercent >= 90
+        const contextColor = state.contextPercent == null
+          ? "muted"
+          : state.contextPercent >= 90
             ? "error"
-            : state.contextPercent != null && state.contextPercent >= 75
+            : state.contextPercent >= 75
               ? "warning"
               : "success";
 
         const model = theme.fg("text", state.modelId);
         const effort = theme.fg("dim", state.thinkingLevel);
         const context = theme.fg(contextColor, contextValue);
-        const mode = theme.fg(
-          state.enabled ? "accent" : "muted",
-          state.enabled ? "calm" : "normal",
-        );
-        const right = mode;
+        const right = theme.fg("accent", state.mode);
         const rightWidth = visibleWidth(right);
         if (rightWidth >= width) {
           return [truncateToWidth(right, width, "")];

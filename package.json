@@ -12,8 +12,9 @@
     "url": "git+https://github.com/shinokamix/pi-agent.git"
   },
   "scripts": {
-    "check": "npm run typecheck && npm test",
-    "test": "node --experimental-transform-types --test extensions/calm-mode/*.test.ts extensions/pretty-response/*.test.ts extensions/researcher/*.test.ts",
+    "check": "npm run typecheck && npm run check:shell && npm test",
+    "check:shell": "bash -n scripts/*.sh",
+    "test": "node --experimental-transform-types --test scripts/*.test.mjs extensions/display-modes/*.test.ts extensions/researcher/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
@@ -29,8 +30,8 @@
   },
   "pi": {
     "extensions": [
-      "./extensions/calm-mode",
-      "./extensions/pretty-response",
+      "./extensions/display-modes",
+      "./extensions/minimal-footer",
       "./extensions/researcher"
     ],
     "skills": [

@@ -6,7 +6,7 @@ The repository excludes credentials, sessions, trust decisions, caches, and othe
 
 ## Included
 
-- `calm-mode`, `pretty-response`, and isolated `researcher` extensions
+- `display-modes`, `minimal-footer`, and isolated `researcher` extensions
 - [`writing-clearly-and-concisely`](https://github.com/obra/the-elements-of-style) skill
 - Global instructions from [`AGENTS.md`](./AGENTS.md)
 - Portable settings from [`config/settings.json`](./config/settings.json)
@@ -39,7 +39,17 @@ cd pi-agent
 ./scripts/setup.sh
 ```
 
-The script backs up and merges settings, links `AGENTS.md`, installs the local Pi package, and installs `npm:@narumitw/pi-usage`.
+The script builds and installs the pinned local Pi fork, backs up and merges settings, links `AGENTS.md`, installs the local Pi package, and installs `npm:@narumitw/pi-usage`.
+
+### Local Pi fork
+
+The fork is reproducible rather than vendored. [`scripts/setup-pi-fork.sh`](./scripts/setup-pi-fork.sh) clones the exact revision recorded in [`forks/pi/base.json`](./forks/pi/base.json), applies [`transcript-presentation.patch`](./forks/pi/transcript-presentation.patch), runs its focused tests, builds Pi, and installs the resulting package globally:
+
+```bash
+./scripts/setup-pi-fork.sh
+```
+
+The script refuses to patch a different revision or overwrite local changes. To test a Pi upgrade, update `base.json`, rebase the patch in a disposable clone, and run the fork and extension checks before replacing the installed version.
 
 ## Sync settings
 
@@ -75,4 +85,4 @@ npm install
 npm run check
 ```
 
-The UI extensions patch private Pi TUI components. After a Pi upgrade, run the checks and verify the interface in a narrow terminal.
+Display Modes uses the fork's transcript-presentation API; stock Pi is not supported. After a Pi upgrade, run both the fork tests and `npm run check`, then verify the interface in a narrow terminal.

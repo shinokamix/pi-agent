@@ -1,0 +1,568 @@
+diff --git a/packages/coding-agent/src/core/extensions/index.ts b/packages/coding-agent/src/core/extensions/index.ts
+index 29847b6..b666169 100644
+--- a/packages/coding-agent/src/core/extensions/index.ts
++++ b/packages/coding-agent/src/core/extensions/index.ts
+@@ -78,6 +78,8 @@ export type {
+ 	ExtensionUIContext,
+ 	ExtensionUIDialogOptions,
+ 	ExtensionWidgetOptions,
++	TranscriptBlock,
++	TranscriptPresentation,
+ 	FindToolCallEvent,
+ 	FindToolResultEvent,
+ 	GetActiveToolsHandler,
+diff --git a/packages/coding-agent/src/core/extensions/runner.ts b/packages/coding-agent/src/core/extensions/runner.ts
+index a23cd6a..366da1c 100644
+--- a/packages/coding-agent/src/core/extensions/runner.ts
++++ b/packages/coding-agent/src/core/extensions/runner.ts
+@@ -242,6 +242,7 @@ const noOpUIContext: ExtensionUIContext = {
+ 	setWorkingVisible: () => {},
+ 	setWorkingIndicator: () => {},
+ 	setHiddenThinkingLabel: () => {},
++	setTranscriptPresentation: () => {},
+ 	setWidget: () => {},
+ 	setFooter: () => {},
+ 	setHeader: () => {},
+diff --git a/packages/coding-agent/src/core/extensions/types.ts b/packages/coding-agent/src/core/extensions/types.ts
+index b607c7f..118eed4 100644
+--- a/packages/coding-agent/src/core/extensions/types.ts
++++ b/packages/coding-agent/src/core/extensions/types.ts
+@@ -124,6 +124,22 @@ export interface WorkingIndicatorOptions {
+ export type AutocompleteProviderFactory = (current: AutocompleteProvider) => AutocompleteProvider;
+ export type EditorFactory = (tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager) => EditorComponent;
+ 
++/** Semantic information exposed by a top-level transcript component. */
++export type TranscriptBlock =
++	| { kind: "user" }
++	| { kind: "assistant"; message?: import("@earendil-works/pi-ai").AssistantMessage }
++	| { kind: "tool"; toolName: string };
++
++/** Controls top-level transcript spacing, visibility, and decoration. */
++export interface TranscriptPresentation {
++	/** Number of empty rows between visible transcript blocks. Defaults to 1. */
++	gap?: number;
++	/** Return false to hide a block before spacing is calculated. */
++	isVisible?(block: TranscriptBlock): boolean;
++	/** Decorate rendered lines without changing the component's internal layout. */
++	decorate?(block: TranscriptBlock, lines: string[], width: number): string[];
++}
++
+ /**
+  * UI context for extensions to request interactive UI.
+  * Each mode (interactive, RPC, print) provides its own implementation.
+@@ -166,6 +182,9 @@ export interface ExtensionUIContext {
+ 	/** Set the label shown for hidden thinking blocks. Call with no argument to restore default. */
+ 	setHiddenThinkingLabel(label?: string): void;
+ 
++	/** Configure top-level transcript layout. Call with no argument to restore defaults. */
++	setTranscriptPresentation(presentation?: TranscriptPresentation): void;
++
+ 	/** Set a widget to display above or below the editor. Accepts string array or component factory. */
+ 	setWidget(key: string, content: string[] | undefined, options?: ExtensionWidgetOptions): void;
+ 	setWidget(
+diff --git a/packages/coding-agent/src/core/index.ts b/packages/coding-agent/src/core/index.ts
+index 924932e..64110a4 100644
+--- a/packages/coding-agent/src/core/index.ts
++++ b/packages/coding-agent/src/core/index.ts
+@@ -73,6 +73,8 @@ export {
+ 	type ToolDefinition,
+ 	type ToolRenderResultOptions,
+ 	type ToolResultEvent,
++	type TranscriptBlock,
++	type TranscriptPresentation,
+ 	type TurnEndEvent,
+ 	type TurnStartEvent,
+ 	type WorkingIndicatorOptions,
+diff --git a/packages/coding-agent/src/modes/interactive/components/assistant-message.ts b/packages/coding-agent/src/modes/interactive/components/assistant-message.ts
+index 6c9a2a4..5dc9ba3 100644
+--- a/packages/coding-agent/src/modes/interactive/components/assistant-message.ts
++++ b/packages/coding-agent/src/modes/interactive/components/assistant-message.ts
+@@ -1,5 +1,6 @@
+ import type { AssistantMessage } from "@earendil-works/pi-ai";
+ import { Container, Markdown, type MarkdownTheme, Spacer, Text } from "@earendil-works/pi-tui";
++import type { TranscriptBlock } from "../../../core/extensions/types.ts";
+ import { getMarkdownTheme, theme } from "../theme/theme.ts";
+ 
+ const OSC133_ZONE_START = "\x1b]133;A\x07";
+@@ -69,6 +70,10 @@ export class AssistantMessageComponent extends Container {
+ 		}
+ 	}
+ 
++	getTranscriptBlock(): TranscriptBlock {
++		return { kind: "assistant", message: this.lastMessage };
++	}
++
+ 	override render(width: number): string[] {
+ 		const lines = super.render(width);
+ 		if (this.hasToolCalls || lines.length === 0) {
+@@ -86,15 +91,14 @@ export class AssistantMessageComponent extends Container {
+ 		// Clear content container
+ 		this.contentContainer.clear();
+ 
++		const showsThinking = !this.hideThinkingBlock || Boolean(this.hiddenThinkingLabel);
+ 		const hasVisibleContent = message.content.some(
+-			(c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()),
++			(c) =>
++				(c.type === "text" && c.text.trim()) ||
++				(c.type === "thinking" && showsThinking && c.thinking.trim()),
+ 		);
+ 
+-		if (hasVisibleContent) {
+-			this.contentContainer.addChild(new Spacer(1));
+-		}
+-
+-		// Render content in order
++		// Render content in order. The transcript container owns outer spacing.
+ 		for (let i = 0; i < message.content.length; i++) {
+ 			const content = message.content[i];
+ 			if (content.type === "text" && content.text.trim()) {
+@@ -121,17 +125,18 @@ export class AssistantMessageComponent extends Container {
+ 
+ 				// Add spacing only when another visible assistant content block follows.
+ 				// This avoids a superfluous blank line before separately-rendered tool execution blocks.
+-				const hasVisibleContentAfter = message.content
+-					.slice(i + 1)
+-					.some((c) => (c.type === "text" && c.text.trim()) || (c.type === "thinking" && c.thinking.trim()));
++				const hasVisibleContentAfter = message.content.slice(i + 1).some(
++					(c) =>
++						(c.type === "text" && c.text.trim()) ||
++						(c.type === "thinking" && showsThinking && c.thinking.trim()),
++				);
+ 
+ 				if (this.hideThinkingBlock) {
+-					// Show one static label for each run of thinking blocks when hidden.
++					if (!this.hiddenThinkingLabel) continue;
+ 					this.contentContainer.addChild(
+ 						new Text(theme.italic(theme.fg("thinkingText", this.hiddenThinkingLabel)), this.outputPad, 0),
+ 					);
+ 				} else {
+-					// Render each run of thinking blocks as one Markdown section.
+ 					this.contentContainer.addChild(
+ 						new Markdown(thinkingBlocks.join("\n\n"), this.outputPad, 0, this.markdownTheme, {
+ 							color: (text: string) => theme.fg("thinkingText", text),
+@@ -139,9 +144,7 @@ export class AssistantMessageComponent extends Container {
+ 						}),
+ 					);
+ 				}
+-				if (hasVisibleContentAfter) {
+-					this.contentContainer.addChild(new Spacer(1));
+-				}
++				if (hasVisibleContentAfter) this.contentContainer.addChild(new Spacer(1));
+ 			}
+ 		}
+ 
+@@ -151,7 +154,7 @@ export class AssistantMessageComponent extends Container {
+ 		const hasToolCalls = message.content.some((c) => c.type === "toolCall");
+ 		this.hasToolCalls = hasToolCalls;
+ 		if (message.stopReason === "length") {
+-			this.contentContainer.addChild(new Spacer(1));
++			if (hasVisibleContent) this.contentContainer.addChild(new Spacer(1));
+ 			this.contentContainer.addChild(
+ 				new Text(
+ 					theme.fg(
+@@ -168,11 +171,11 @@ export class AssistantMessageComponent extends Container {
+ 					message.errorMessage && message.errorMessage !== "Request was aborted"
+ 						? message.errorMessage
+ 						: "Operation aborted";
+-				this.contentContainer.addChild(new Spacer(1));
++				if (hasVisibleContent) this.contentContainer.addChild(new Spacer(1));
+ 				this.contentContainer.addChild(new Text(theme.fg("error", abortMessage), this.outputPad, 0));
+ 			} else if (message.stopReason === "error") {
+ 				const errorMsg = message.errorMessage || "Unknown error";
+-				this.contentContainer.addChild(new Spacer(1));
++				if (hasVisibleContent) this.contentContainer.addChild(new Spacer(1));
+ 				this.contentContainer.addChild(new Text(theme.fg("error", `Error: ${errorMsg}`), this.outputPad, 0));
+ 			}
+ 		}
+diff --git a/packages/coding-agent/src/modes/interactive/components/skill-invocation-message.ts b/packages/coding-agent/src/modes/interactive/components/skill-invocation-message.ts
+index e09febc..81bd083 100644
+--- a/packages/coding-agent/src/modes/interactive/components/skill-invocation-message.ts
++++ b/packages/coding-agent/src/modes/interactive/components/skill-invocation-message.ts
+@@ -1,5 +1,6 @@
+ import { Box, Markdown, type MarkdownTheme, Text } from "@earendil-works/pi-tui";
+ import type { ParsedSkillBlock } from "../../../core/agent-session.ts";
++import type { TranscriptBlock } from "../../../core/extensions/types.ts";
+ import { getMarkdownTheme, theme } from "../theme/theme.ts";
+ import { keyText } from "./keybinding-hints.ts";
+ 
+@@ -20,6 +21,10 @@ export class SkillInvocationMessageComponent extends Box {
+ 		this.updateDisplay();
+ 	}
+ 
++	getTranscriptBlock(): TranscriptBlock {
++		return { kind: "user" };
++	}
++
+ 	setExpanded(expanded: boolean): void {
+ 		this.expanded = expanded;
+ 		this.updateDisplay();
+diff --git a/packages/coding-agent/src/modes/interactive/components/tool-execution.ts b/packages/coding-agent/src/modes/interactive/components/tool-execution.ts
+index ad84f44..324c479 100644
+--- a/packages/coding-agent/src/modes/interactive/components/tool-execution.ts
++++ b/packages/coding-agent/src/modes/interactive/components/tool-execution.ts
+@@ -1,5 +1,5 @@
+ import { Box, type Component, Container, getCapabilities, Image, Spacer, Text, type TUI } from "@earendil-works/pi-tui";
+-import type { ToolDefinition, ToolRenderContext } from "../../../core/extensions/types.ts";
++import type { ToolDefinition, ToolRenderContext, TranscriptBlock } from "../../../core/extensions/types.ts";
+ import { createAllToolDefinitions, type ToolName } from "../../../core/tools/index.ts";
+ import { getTextOutput as getRenderedTextOutput } from "../../../core/tools/render-utils.ts";
+ import { convertToPng } from "../../../utils/image-convert.ts";
+@@ -60,8 +60,6 @@ export class ToolExecutionComponent extends Container {
+ 		this.ui = ui;
+ 		this.cwd = cwd;
+ 
+-		this.addChild(new Spacer(1));
+-
+ 		// Always create all shell variants. contentBox is used for default renderer-based composition.
+ 		// selfRenderContainer is used when the tool renders its own framing.
+ 		// contentText is reserved for generic fallback rendering when no tool definition exists.
+@@ -213,6 +211,10 @@ export class ToolExecutionComponent extends Container {
+ 		this.updateDisplay();
+ 	}
+ 
++	getTranscriptBlock(): TranscriptBlock {
++		return { kind: "tool", toolName: this.toolName };
++	}
++
+ 	override invalidate(): void {
+ 		super.invalidate();
+ 		this.updateDisplay();
+@@ -231,7 +233,6 @@ export class ToolExecutionComponent extends Container {
+ 
+ 			const lines: string[] = [];
+ 			if (contentLines.length > 0) {
+-				lines.push("");
+ 				lines.push(...contentLines);
+ 			}
+ 			for (let i = 0; i < this.imageComponents.length; i++) {
+diff --git a/packages/coding-agent/src/modes/interactive/components/transcript-container.ts b/packages/coding-agent/src/modes/interactive/components/transcript-container.ts
+new file mode 100644
+index 0000000..a9df259
+--- /dev/null
++++ b/packages/coding-agent/src/modes/interactive/components/transcript-container.ts
+@@ -0,0 +1,69 @@
++import type { Component } from "@earendil-works/pi-tui";
++import { Container } from "@earendil-works/pi-tui";
++import type { TranscriptBlock, TranscriptPresentation } from "../../../core/extensions/types.ts";
++
++type TranscriptBlockComponent = Component & {
++	getTranscriptBlock(): TranscriptBlock;
++};
++
++function isTranscriptBlockComponent(component: Component): component is TranscriptBlockComponent {
++	return (
++		typeof component === "object" &&
++		component !== null &&
++		"getTranscriptBlock" in component &&
++		typeof component.getTranscriptBlock === "function"
++	);
++}
++
++/**
++ * Vertical transcript layout. Semantic transcript blocks use centralized
++ * spacing and presentation; other components retain their existing layout.
++ */
++export class TranscriptContainer extends Container {
++	private presentation: TranscriptPresentation | undefined;
++
++	setPresentation(presentation?: TranscriptPresentation): void {
++		this.presentation = presentation;
++	}
++
++	override render(width: number): string[] {
++		const lines: string[] = [];
++		let hasRenderedContent = false;
++		const requestedGap = this.presentation?.gap ?? 1;
++		const gap = Number.isFinite(requestedGap) ? Math.max(0, Math.min(10, Math.floor(requestedGap))) : 1;
++
++		for (const child of this.children) {
++			if (!isTranscriptBlockComponent(child)) {
++				const childLines = child.render(width);
++				lines.push(...childLines);
++				hasRenderedContent ||= childLines.length > 0;
++				continue;
++			}
++
++			const block = child.getTranscriptBlock();
++			try {
++				if (this.presentation?.isVisible?.(block) === false) continue;
++			} catch {
++				// Presentation callbacks must never make the transcript disappear.
++			}
++
++			const renderedLines = child.render(width);
++			if (renderedLines.length === 0) continue;
++
++			let childLines = renderedLines;
++			try {
++				childLines = this.presentation?.decorate?.(block, [...renderedLines], width) ?? renderedLines;
++			} catch {
++				// Keep the undecorated block if an extension decorator fails.
++				childLines = renderedLines;
++			}
++			if (childLines.length === 0) continue;
++
++			if (hasRenderedContent) lines.push(...Array.from({ length: gap }, () => ""));
++			lines.push(...childLines);
++			hasRenderedContent = true;
++		}
++
++		return lines;
++	}
++}
+diff --git a/packages/coding-agent/src/modes/interactive/components/user-message.ts b/packages/coding-agent/src/modes/interactive/components/user-message.ts
+index 74b54fd..88c0d9d 100644
+--- a/packages/coding-agent/src/modes/interactive/components/user-message.ts
++++ b/packages/coding-agent/src/modes/interactive/components/user-message.ts
+@@ -1,4 +1,5 @@
+ import { Box, Container, Markdown, type MarkdownTheme } from "@earendil-works/pi-tui";
++import type { TranscriptBlock } from "../../../core/extensions/types.ts";
+ import { getMarkdownTheme, theme } from "../theme/theme.ts";
+ 
+ const OSC133_ZONE_START = "\x1b]133;A\x07";
+@@ -26,6 +27,10 @@ export class UserMessageComponent extends Container {
+ 		this.rebuild();
+ 	}
+ 
++	getTranscriptBlock(): TranscriptBlock {
++		return { kind: "user" };
++	}
++
+ 	private rebuild(): void {
+ 		this.clear();
+ 		const contentBox = new Box(this.outputPad, 1, (content: string) => theme.bg("userMessageBg", content));
+diff --git a/packages/coding-agent/src/modes/interactive/interactive-mode.ts b/packages/coding-agent/src/modes/interactive/interactive-mode.ts
+index 6eba438..c2b4243 100644
+--- a/packages/coding-agent/src/modes/interactive/interactive-mode.ts
++++ b/packages/coding-agent/src/modes/interactive/interactive-mode.ts
+@@ -70,6 +70,7 @@ import type {
+ 	ExtensionUIDialogOptions,
+ 	ExtensionWidgetOptions,
+ 	ProjectTrustContext,
++	TranscriptPresentation,
+ 	WorkingIndicatorOptions,
+ } from "../../core/extensions/index.ts";
+ import { FooterDataProvider, type ReadonlyFooterDataProvider } from "../../core/footer-data-provider.ts";
+@@ -138,6 +139,7 @@ import {
+ 	WorkingStatusIndicator,
+ } from "./components/status-indicator.ts";
+ import { ToolExecutionComponent } from "./components/tool-execution.ts";
++import { TranscriptContainer } from "./components/transcript-container.ts";
+ import { TreeSelectorComponent } from "./components/tree-selector.ts";
+ import { TrustSelectorComponent } from "./components/trust-selector.ts";
+ import { UserMessageComponent } from "./components/user-message.ts";
+@@ -324,7 +326,7 @@ export class InteractiveMode {
+ 	private runtimeHost: AgentSessionRuntime;
+ 	private ui: TUI;
+ 	private loadedResourcesContainer: Container;
+-	private chatContainer: Container;
++	private chatContainer: TranscriptContainer;
+ 	private pendingMessagesContainer: Container;
+ 	private statusContainer: Container;
+ 	private defaultEditor: CustomEditor;
+@@ -460,7 +462,7 @@ export class InteractiveMode {
+ 		this.ui.setClearOnShrink(this.settingsManager.getClearOnShrink());
+ 		this.headerContainer = new Container();
+ 		this.loadedResourcesContainer = new Container();
+-		this.chatContainer = new Container();
++		this.chatContainer = new TranscriptContainer();
+ 		this.pendingMessagesContainer = new Container();
+ 		this.statusContainer = new Container();
+ 		this.widgetContainerAbove = new Container();
+@@ -1901,6 +1903,11 @@ export class InteractiveMode {
+ 		this.ui.requestRender();
+ 	}
+ 
++	private setTranscriptPresentation(presentation?: TranscriptPresentation): void {
++		this.chatContainer.setPresentation(presentation);
++		this.ui.requestRender();
++	}
++
+ 	private setHiddenThinkingLabel(label?: string): void {
+ 		this.hiddenThinkingLabel = label ?? this.defaultHiddenThinkingLabel;
+ 		for (const child of this.chatContainer.children) {
+@@ -2002,6 +2009,7 @@ export class InteractiveMode {
+ 			);
+ 		}
+ 		this.setHiddenThinkingLabel();
++		this.setTranscriptPresentation();
+ 	}
+ 
+ 	// Maximum total widget lines to prevent viewport overflow
+@@ -2170,6 +2178,7 @@ export class InteractiveMode {
+ 			setWorkingVisible: (visible) => this.setWorkingVisible(visible),
+ 			setWorkingIndicator: (options) => this.setWorkingIndicator(options),
+ 			setHiddenThinkingLabel: (label) => this.setHiddenThinkingLabel(label),
++			setTranscriptPresentation: (presentation) => this.setTranscriptPresentation(presentation),
+ 			setWidget: (key, content, options) => this.setExtensionWidget(key, content, options),
+ 			setFooter: (factory) => this.setExtensionFooter(factory),
+ 			setHeader: (factory) => this.setExtensionHeader(factory),
+@@ -3286,9 +3295,6 @@ export class InteractiveMode {
+ 			case "user": {
+ 				const textContent = this.getUserMessageText(message);
+ 				if (textContent) {
+-					if (this.chatContainer.children.length > 0) {
+-						this.chatContainer.addChild(new Spacer(1));
+-					}
+ 					const skillBlock = parseSkillBlock(textContent);
+ 					if (skillBlock) {
+ 						// Render skill block (collapsible)
+@@ -3300,7 +3306,6 @@ export class InteractiveMode {
+ 						this.chatContainer.addChild(component);
+ 						// Render user message separately if present
+ 						if (skillBlock.userMessage) {
+-							this.chatContainer.addChild(new Spacer(1));
+ 							const userComponent = new UserMessageComponent(
+ 								skillBlock.userMessage,
+ 								this.getMarkdownThemeWithSettings(),
+diff --git a/packages/coding-agent/src/modes/rpc/rpc-mode.ts b/packages/coding-agent/src/modes/rpc/rpc-mode.ts
+index c6db8c3..0e6951f 100644
+--- a/packages/coding-agent/src/modes/rpc/rpc-mode.ts
++++ b/packages/coding-agent/src/modes/rpc/rpc-mode.ts
+@@ -191,6 +191,10 @@ export async function runRpcMode(runtimeHost: AgentSessionRuntime): Promise<neve
+ 			// Hidden thinking label not supported in RPC mode - requires TUI message rendering access
+ 		},
+ 
++		setTranscriptPresentation(): void {
++			// Transcript presentation is only supported in interactive mode
++		},
++
+ 		setWidget(key: string, content: unknown, options?: ExtensionWidgetOptions): void {
+ 			// Only support string arrays in RPC mode - factory functions are ignored
+ 			if (content === undefined || Array.isArray(content)) {
+diff --git a/packages/coding-agent/test/transcript-container.test.ts b/packages/coding-agent/test/transcript-container.test.ts
+new file mode 100644
+index 0000000..4f2749d
+--- /dev/null
++++ b/packages/coding-agent/test/transcript-container.test.ts
+@@ -0,0 +1,130 @@
++import type { Component } from "@earendil-works/pi-tui";
++import { describe, expect, it } from "vitest";
++import type { TranscriptBlock } from "../src/core/extensions/types.ts";
++import { AssistantMessageComponent } from "../src/modes/interactive/components/assistant-message.ts";
++import { SkillInvocationMessageComponent } from "../src/modes/interactive/components/skill-invocation-message.ts";
++import { TranscriptContainer } from "../src/modes/interactive/components/transcript-container.ts";
++import { UserMessageComponent } from "../src/modes/interactive/components/user-message.ts";
++import { getMarkdownTheme, initTheme } from "../src/modes/interactive/theme/theme.ts";
++
++initTheme("dark");
++
++class Plain implements Component {
++	constructor(private readonly lines: string[]) {}
++
++	render(): string[] {
++		return [...this.lines];
++	}
++
++	invalidate(): void {}
++}
++
++class Block implements Component {
++	private readonly block: TranscriptBlock;
++	private readonly lines: string[];
++
++	constructor(block: TranscriptBlock, lines: string[]) {
++		this.block = block;
++		this.lines = lines;
++	}
++
++	getTranscriptBlock(): TranscriptBlock {
++		return this.block;
++	}
++
++	render(): string[] {
++		return [...this.lines];
++	}
++
++	invalidate(): void {}
++}
++
++describe("TranscriptContainer", () => {
++	it("treats skill invocations as user transcript blocks", () => {
++		expect(SkillInvocationMessageComponent.prototype.getTranscriptBlock()).toEqual({ kind: "user" });
++	});
++
++	it("keeps user padding separate from the transcript gap", () => {
++		const user = new UserMessageComponent("request", getMarkdownTheme(), 1);
++		const assistant = new AssistantMessageComponent(undefined, true, getMarkdownTheme(), "", 1);
++		assistant.updateContent({
++			role: "assistant",
++			content: [
++				{ type: "thinking", thinking: "hidden" },
++				{ type: "text", text: "answer" },
++			],
++			stopReason: "stop",
++		} as never);
++
++		expect(user.render(80)).toHaveLength(3);
++		expect(assistant.render(80)).toHaveLength(1);
++
++		const transcript = new TranscriptContainer();
++		transcript.addChild(user);
++		transcript.addChild(assistant);
++		expect(transcript.render(80)).toHaveLength(5);
++		expect(transcript.render(80)[3]).toBe("");
++	});
++
++	it("owns the exact gap between visible blocks", () => {
++		const transcript = new TranscriptContainer();
++		transcript.setPresentation({ gap: 1 });
++		transcript.addChild(new Block({ kind: "user" }, ["user"]));
++		transcript.addChild(new Block({ kind: "assistant" }, ["answer"]));
++
++		expect(transcript.render(80)).toEqual(["user", "", "answer"]);
++
++		transcript.setPresentation({ gap: 2 });
++		expect(transcript.render(80)).toEqual(["user", "", "", "answer"]);
++	});
++
++	it("preserves non-semantic layout and spaces the following block", () => {
++		const transcript = new TranscriptContainer();
++		transcript.addChild(new Plain(["border"]));
++		transcript.addChild(new Plain(["content"]));
++		transcript.addChild(new Block({ kind: "user" }, ["request"]));
++
++		expect(transcript.render(80)).toEqual(["border", "content", "", "request"]);
++	});
++
++	it("sanitizes invalid and excessive gaps", () => {
++		const transcript = new TranscriptContainer();
++		transcript.setPresentation({ gap: Number.POSITIVE_INFINITY });
++		transcript.addChild(new Block({ kind: "user" }, ["user"]));
++		transcript.addChild(new Block({ kind: "assistant" }, ["answer"]));
++
++		expect(transcript.render(80)).toEqual(["user", "", "answer"]);
++		transcript.setPresentation({ gap: 100 });
++		expect(transcript.render(80)).toHaveLength(12);
++	});
++
++	it("does not leave a gap for hidden or empty blocks", () => {
++		const transcript = new TranscriptContainer();
++		transcript.setPresentation({
++			gap: 1,
++			isVisible: (block) => block.kind !== "tool",
++		});
++		transcript.addChild(new Block({ kind: "user" }, ["user"]));
++		transcript.addChild(new Block({ kind: "tool", toolName: "read" }, ["tool"]));
++		transcript.addChild(new Block({ kind: "assistant" }, []));
++		transcript.addChild(new Block({ kind: "assistant" }, ["answer"]));
++
++		expect(transcript.render(80)).toEqual(["user", "", "answer"]);
++	});
++
++	it("falls back to visible undecorated content when callbacks throw", () => {
++		const transcript = new TranscriptContainer();
++		transcript.setPresentation({
++			isVisible: () => {
++				throw new Error("visibility failed");
++			},
++			decorate: (_block, lines) => {
++				lines[0] = "mutated";
++				throw new Error("decoration failed");
++			},
++		});
++		transcript.addChild(new Block({ kind: "user" }, ["user"]));
++
++		expect(transcript.render(80)).toEqual(["user"]);
++	});
++});
