@@ -1,9 +1,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { DisplayMode } from "../display-modes/display.ts";
 
 export type FooterState = {
-  mode: DisplayMode;
   modelId: string;
   thinkingLevel: string;
   contextPercent: number | null;
@@ -49,7 +47,7 @@ export function installFooter(
     },
   };
 
-  ctx.ui.setFooter((tui, theme) => {
+  ctx.ui.setFooter((tui, theme, footerData) => {
     const requestRender = (): void => tui.requestRender();
     requestFooterRender = requestRender;
 
@@ -78,7 +76,15 @@ export function installFooter(
         const model = theme.fg("text", state.modelId);
         const effort = theme.fg("dim", state.thinkingLevel);
         const context = theme.fg(contextColor, contextValue);
-        const right = theme.fg("accent", state.mode);
+        const statuses = Array.from(footerData.getExtensionStatuses().entries())
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([, text]) => text.replace(/[\r\n]+/g, " ").trim())
+          .filter(Boolean);
+        const right = statuses.join(" ");
+        if (!right) {
+          return [fitDetails(model, effort, context, separator, width)];
+        }
+
         const rightWidth = visibleWidth(right);
         if (rightWidth >= width) {
           return [truncateToWidth(right, width, "")];

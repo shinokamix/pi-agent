@@ -2,12 +2,6 @@ export const DISPLAY_MODES = ["normal", "calm", "zen"] as const;
 export type DisplayMode = (typeof DISPLAY_MODES)[number];
 export const DEFAULT_DISPLAY_MODE: DisplayMode = "calm";
 
-export const DISPLAY_MODE_CHANGED_EVENT = "display-modes:changed";
-
-export type DisplayModeChangedEvent = {
-  mode: DisplayMode;
-};
-
 export type DisplayProfile = {
   assistantVisibility: "all" | "visible" | "final";
   toolVisibility: "all" | "none" | ReadonlySet<string>;

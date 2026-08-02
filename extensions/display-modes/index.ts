@@ -4,11 +4,9 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { readMode, writeMode } from "./config.ts";
 import {
-  DISPLAY_MODE_CHANGED_EVENT,
   DISPLAY_MODES,
   getDisplayProfile,
   isDisplayMode,
-  type DisplayModeChangedEvent,
 } from "./display.ts";
 import {
   createTranscriptPresentation,
@@ -18,14 +16,10 @@ import {
 export default async function displayModes(pi: ExtensionAPI): Promise<void> {
   let mode = await readMode();
 
-  const publishMode = (): void => {
-    const event: DisplayModeChangedEvent = { mode };
-    pi.events.emit(DISPLAY_MODE_CHANGED_EVENT, event);
-  };
-
   const applyUi = (ctx: ExtensionContext): void => {
     if (ctx.mode !== "tui") return;
 
+    ctx.ui.setStatus("display-mode", ctx.ui.theme.fg("accent", mode));
     ctx.ui.setHiddenThinkingLabel(mode === "normal" ? undefined : "");
 
     if (supportsTranscriptPresentation(ctx)) {
@@ -37,7 +31,6 @@ export default async function displayModes(pi: ExtensionAPI): Promise<void> {
   };
 
   pi.on("session_start", (_event, ctx) => {
-    publishMode();
     applyUi(ctx);
 
     if (ctx.mode === "tui" && !supportsTranscriptPresentation(ctx)) {
@@ -70,7 +63,6 @@ export default async function displayModes(pi: ExtensionAPI): Promise<void> {
 
       await writeMode(nextMode);
       mode = nextMode;
-      publishMode();
       applyUi(ctx);
       ctx.ui.notify(`Display mode: ${mode}.`, "info");
     },
@@ -78,6 +70,7 @@ export default async function displayModes(pi: ExtensionAPI): Promise<void> {
 
   pi.on("session_shutdown", (_event, ctx) => {
     if (ctx.mode === "tui") {
+      ctx.ui.setStatus("display-mode", undefined);
       if (supportsTranscriptPresentation(ctx)) {
         ctx.ui.setTranscriptPresentation();
       }
