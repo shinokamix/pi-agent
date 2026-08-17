@@ -10,7 +10,6 @@ import { Container, Markdown, type Component, truncateToWidth, visibleWidth } fr
 import { Type } from "typebox";
 
 const CHILD_ENV = "PI_RESEARCHER_CHILD";
-const DEFAULT_MODEL = "openai-codex/gpt-5.4-mini:low";
 const MAX_FETCH_BYTES = 512 * 1024;
 const MAX_PAGE_CHARS = 30_000;
 const MAX_SEARCHES = 8;
@@ -287,12 +286,12 @@ function addUsage(total: Usage, next: Usage): void {
 
 async function runResearcher(
 	task: string,
+	model: string,
 	signal: AbortSignal | undefined,
 	onProgress: (progress: ResearchProgress) => void,
 ): Promise<ResearchResult> {
 	const cwd = await mkdtemp(join(tmpdir(), "pi-researcher-"));
 	const extensionPath = fileURLToPath(import.meta.url);
-	const model = process.env.PI_RESEARCHER_MODEL ?? DEFAULT_MODEL;
 	const args = [
 		"--mode", "json", "-p", "--no-session",
 		"--model", model,
@@ -466,7 +465,7 @@ export default function researcher(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "researcher",
 		label: "Researcher",
-		description: "Delegate open-web research to an isolated small-model agent. Returns only a concise cited brief; the child conversation and fetched pages stay out of the main context. At most three researchers run concurrently.",
+		description: "Delegate open-web research to an isolated Pi process. Returns only a concise cited brief; the child conversation and fetched pages stay out of the main context. At most three researchers run concurrently.",
 		promptSnippet: "Research the public web in an isolated context and return a concise cited brief",
 		promptGuidelines: [
 			"Use researcher for open-web investigation when current or externally sourced information is needed.",
@@ -476,14 +475,17 @@ export default function researcher(pi: ExtensionAPI): void {
 			task: Type.String({ description: "Self-contained research question, including scope and desired emphasis" }),
 		}),
 		renderShell: "self",
-		async execute(_id, params, signal, onUpdate) {
+		async execute(_id, params, signal, onUpdate, ctx) {
+			const model = process.env.PI_RESEARCHER_MODEL ??
+				(ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined);
+			if (!model) throw new Error("Researcher requires an active Pi model");
 			if (limiter.isFull()) {
-				const queued: ResearchProgress = { status: "queued", searches: 0, pages: 0, model: process.env.PI_RESEARCHER_MODEL ?? DEFAULT_MODEL };
+				const queued: ResearchProgress = { status: "queued", searches: 0, pages: 0, model };
 				onUpdate?.({ content: [{ type: "text", text: "Research queued…" }], details: queued });
 			}
 			await limiter.acquire(signal);
 			try {
-				const result = await runResearcher(params.task, signal, (progress) => {
+				const result = await runResearcher(params.task, model, signal, (progress) => {
 					onUpdate?.({ content: [{ type: "text", text: progressText(progress) }], details: progress });
 				});
 				return {

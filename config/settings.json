@@ -1,8 +1,0 @@
-{
-  "theme": "minimal-dark",
-  "quietStartup": true,
-  "hideThinkingBlock": true,
-  "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.6-sol",
-  "defaultThinkingLevel": "medium"
-}
