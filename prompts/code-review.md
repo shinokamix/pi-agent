@@ -1,6 +1,7 @@
 ---
 description: Review changes for defects and unnecessary complexity
 ---
+
 Review request: ${ARGUMENTS:-not specified}
 
 Perform a read-only code review. Do not modify files, install dependencies,

@@ -44,36 +44,59 @@ type ResearchProgress = {
 
 type ResearchResult = { output: string; progress: ResearchProgress; usage: Usage };
 
+type UsageUpdate = Partial<Omit<Usage, "cost">> & { cost?: Partial<Usage["cost"]> };
+
+type ChildEvent = {
+	type: string;
+	toolName?: string;
+	args?: { query?: string; url?: string };
+	result?: { details?: { output?: string; url?: string } };
+	message?: {
+		role?: string;
+		usage?: UsageUpdate;
+		content?: Array<{ type?: string; text?: string }>;
+		stopReason?: string;
+	};
+};
+
 function decodeHtml(value: string): string {
 	return value
-		.replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-		.replace(/&#x([\da-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
-		.replace(/&amp;/g, "&")
-		.replace(/&lt;/g, "<")
-		.replace(/&gt;/g, ">")
-		.replace(/&quot;/g, '"')
-		.replace(/&#39;|&apos;/g, "'")
-		.replace(/&nbsp;/g, " ");
+		.replaceAll(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+		.replaceAll(/&#x([\da-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
+		.replaceAll("&amp;", "&")
+		.replaceAll("&lt;", "<")
+		.replaceAll("&gt;", ">")
+		.replaceAll("&quot;", '"')
+		.replaceAll(/&#39;|&apos;/g, "'")
+		.replaceAll("&nbsp;", " ");
 }
 
 function htmlToText(html: string): string {
 	return decodeHtml(
 		html
-			.replace(/<(script|style|svg|nav)[^>]*>[\s\S]*?<\/\1>/gi, " ")
-			.replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr)>/gi, "\n")
-			.replace(/<[^>]+>/g, " "),
+			.replaceAll(/<(script|style|svg|nav)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+			.replaceAll(/<(?:br|\/p|\/div|\/li|\/h[1-6]|\/tr)>/gi, "\n")
+			.replaceAll(/<[^>]+>/g, " "),
 	)
-		.replace(/[ \t]+/g, " ")
-		.replace(/ *\n */g, "\n")
-		.replace(/\n{3,}/g, "\n\n")
+		.replaceAll(/[ \t]+/g, " ")
+		.replaceAll(/ *\n */g, "\n")
+		.replaceAll(/\n{3,}/g, "\n\n")
 		.trim();
+}
+
+function hostnameOrUrl(value: string): string {
+	try {
+		return new URL(value).hostname;
+	} catch {
+		return value;
+	}
 }
 
 function unwrapDuckDuckGoUrl(href: string): string {
 	const absolute = href.startsWith("//") ? `https:${href}` : href;
 	try {
 		const url = new URL(decodeHtml(absolute));
-		return url.searchParams.get("uddg") ?? url.toString();
+		return url.searchParams.get("uddg") ?? url.href;
 	} catch {
 		return absolute;
 	}
@@ -104,7 +127,8 @@ export function isPrivateAddress(address: string): boolean {
 		normalized.startsWith("fd") ||
 		normalized.startsWith("2001:db8:") ||
 		normalized.startsWith("ff")
-	) return true;
+	)
+		return true;
 	const parts = normalized.split(".").map(Number);
 	if (parts.length !== 4 || parts.some(Number.isNaN)) return false;
 	return (
@@ -127,7 +151,8 @@ async function assertPublicUrl(value: string): Promise<URL> {
 	const url = new URL(value);
 	if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Only HTTP(S) URLs are allowed");
 	if (url.username || url.password) throw new Error("URLs with credentials are not allowed");
-	if (url.hostname === "localhost" || url.hostname.endsWith(".localhost")) throw new Error("Local URLs are not allowed");
+	if (url.hostname === "localhost" || url.hostname.endsWith(".localhost"))
+		throw new Error("Local URLs are not allowed");
 	const addresses = await lookup(url.hostname, { all: true });
 	if (addresses.length === 0 || addresses.some(({ address }) => isPrivateAddress(address))) {
 		throw new Error("Private network URLs are not allowed");
@@ -151,7 +176,7 @@ async function fetchPublic(
 		if (response.status < 300 || response.status >= 400) return response;
 		const location = response.headers.get("location");
 		if (!location) return response;
-		url = await assertPublicUrl(new URL(location, url).toString());
+		url = await assertPublicUrl(new URL(location, url).href);
 	}
 	throw new Error("Too many redirects");
 }
@@ -169,7 +194,11 @@ async function readResponse(response: Response): Promise<string> {
 		chunks.push(value.byteLength > remaining ? value.subarray(0, remaining) : value);
 		size += Math.min(value.byteLength, remaining);
 	}
-	await reader.cancel().catch(() => undefined);
+	try {
+		await reader.cancel();
+	} catch {
+		// The response has already been consumed; cancellation failure needs no recovery.
+	}
 	return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
@@ -199,14 +228,27 @@ function registerWebTools(pi: ExtensionAPI): void {
 				const payload = JSON.parse(await readResponse(response)) as {
 					web?: { results?: Array<{ title: string; url: string; description?: string }> };
 				};
-				const results = (payload.web?.results ?? []).slice(0, limit).map((item, index) =>
-					`${index + 1}. ${item.title}\n${item.url}${item.description ? `\n${item.description}` : ""}`,
-				).join("\n\n");
-				return { content: [{ type: "text", text: results || "No search results found." }], details: { provider: "brave" } };
+				const results = (payload.web?.results ?? [])
+					.slice(0, limit)
+					.map(
+						(item, index) =>
+							`${index + 1}. ${item.title}\n${item.url}${item.description ? `\n${item.description}` : ""}`,
+					)
+					.join("\n\n");
+				return {
+					content: [{ type: "text", text: results || "No search results found." }],
+					details: { provider: "brave" },
+				};
 			}
-			const response = await fetchPublic(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(params.query)}`, signal);
+			const response = await fetchPublic(
+				`https://html.duckduckgo.com/html/?q=${encodeURIComponent(params.query)}`,
+				signal,
+			);
 			const results = parseSearchResults(await readResponse(response), limit);
-			return { content: [{ type: "text", text: results || "No search results found." }], details: { provider: "duckduckgo" } };
+			return {
+				content: [{ type: "text", text: results || "No search results found." }],
+				details: { provider: "duckduckgo" },
+			};
 		},
 	});
 
@@ -219,7 +261,7 @@ function registerWebTools(pi: ExtensionAPI): void {
 			if (++pages > MAX_PAGES) throw new Error(`Page budget exceeded (${MAX_PAGES})`);
 			const response = await fetchPublic(params.url, signal);
 			const contentType = response.headers.get("content-type") ?? "";
-			if (contentType && !/(text|html|json|xml|javascript)/i.test(contentType)) {
+			if (contentType && !/text|html|json|xml|javascript/i.test(contentType)) {
 				throw new Error(`Unsupported content type: ${contentType}`);
 			}
 			const raw = await readResponse(response);
@@ -244,11 +286,15 @@ function registerWebTools(pi: ExtensionAPI): void {
 		],
 		parameters: Type.Object({
 			report: Type.String({ description: "Concise Markdown research brief with inline citations" }),
-			sources: Type.Array(Type.Object({
-				title: Type.String(),
-				url: Type.String(),
-			}), { minItems: 1, maxItems: 8 }),
+			sources: Type.Array(
+				Type.Object({
+					title: Type.String(),
+					url: Type.String(),
+				}),
+				{ minItems: 1, maxItems: 8 },
+			),
 		}),
+		// eslint-disable-next-line @typescript-eslint/require-await -- Pi requires asynchronous tool callbacks.
 		async execute(_id, params) {
 			const unverified = params.sources.filter(({ url }) => !fetchedUrls.has(url));
 			if (unverified.length > 0) {
@@ -256,7 +302,11 @@ function registerWebTools(pi: ExtensionAPI): void {
 			}
 			const sources = params.sources.map(({ title, url }) => `- [${title}](${url})`).join("\n");
 			const output = `${params.report.trim()}\n\n## Sources\n${sources}`;
-			return { content: [{ type: "text", text: output }], details: { output, sources: params.sources }, terminate: true };
+			return {
+				content: [{ type: "text", text: output }],
+				details: { output, sources: params.sources },
+				terminate: true,
+			};
 		},
 	});
 }
@@ -267,21 +317,25 @@ function piInvocation(args: string[]): { command: string; args: string[] } {
 		return { command: process.execPath, args: [script, ...args] };
 	}
 	const runtime = basename(process.execPath).toLowerCase();
-	return /^(node|bun)(\.exe)?$/.test(runtime)
-		? { command: "pi", args }
-		: { command: process.execPath, args };
+	return /^(?:node|bun)(?:\.exe)?$/.test(runtime) ? { command: "pi", args } : { command: process.execPath, args };
 }
 
 function emptyUsage(): Usage {
 	return {
-		input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
+		input: 0,
+		output: 0,
+		cacheRead: 0,
+		cacheWrite: 0,
+		totalTokens: 0,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 	};
 }
 
-function addUsage(total: Usage, next: Usage): void {
-	for (const key of ["input", "output", "cacheRead", "cacheWrite", "totalTokens"] as const) total[key] += next[key] ?? 0;
-	for (const key of ["input", "output", "cacheRead", "cacheWrite", "total"] as const) total.cost[key] += next.cost?.[key] ?? 0;
+function addUsage(total: Usage, next: UsageUpdate): void {
+	for (const key of ["input", "output", "cacheRead", "cacheWrite", "totalTokens"] as const)
+		total[key] += next[key] ?? 0;
+	for (const key of ["input", "output", "cacheRead", "cacheWrite", "total"] as const)
+		total.cost[key] += next.cost?.[key] ?? 0;
 }
 
 async function runResearcher(
@@ -293,11 +347,18 @@ async function runResearcher(
 	const cwd = await mkdtemp(join(tmpdir(), "pi-researcher-"));
 	const extensionPath = fileURLToPath(import.meta.url);
 	const args = [
-		"--mode", "json", "-p", "--no-session",
-		"--model", model,
-		"--tools", "web_search,web_fetch,submit_research",
-		"--extension", extensionPath,
-		"--append-system-prompt", SYSTEM_PROMPT,
+		"--mode",
+		"json",
+		"-p",
+		"--no-session",
+		"--model",
+		model,
+		"--tools",
+		"web_search,web_fetch,submit_research",
+		"--extension",
+		extensionPath,
+		"--append-system-prompt",
+		SYSTEM_PROMPT,
 		`Research task:\n${task}`,
 	];
 	const progress: ResearchProgress = { status: "starting", searches: 0, pages: 0, model };
@@ -320,7 +381,7 @@ async function runResearcher(
 			let buffer = "";
 			const consume = (line: string) => {
 				try {
-					const event = JSON.parse(line);
+					const event = JSON.parse(line) as ChildEvent;
 					if (event.type === "tool_execution_start") {
 						if (event.toolName === "web_search") {
 							progress.status = "searching";
@@ -329,7 +390,8 @@ async function runResearcher(
 						} else if (event.toolName === "web_fetch") {
 							progress.status = "reading";
 							progress.pages++;
-							try { progress.current = new URL(event.args?.url).hostname; } catch { progress.current = event.args?.url; }
+							const currentUrl = event.args?.url;
+							if (currentUrl) progress.current = hostnameOrUrl(currentUrl);
 						}
 						onProgress({ ...progress });
 					}
@@ -343,8 +405,8 @@ async function runResearcher(
 					if (event.type !== "message_end" || event.message?.role !== "assistant") return;
 					if (event.message.usage) addUsage(usage, event.message.usage);
 					const text = event.message.content
-						?.filter((part: { type: string }) => part.type === "text")
-						.map((part: { text: string }) => part.text)
+						?.filter((part) => part.type === "text")
+						.map((part) => part.text ?? "")
 						.join("\n");
 					if (text) fallbackOutput = text;
 					stopReason = event.message.stopReason;
@@ -352,17 +414,19 @@ async function runResearcher(
 					// Ignore non-JSON diagnostics.
 				}
 			};
-			child.stdout.on("data", (chunk) => {
+			child.stdout.on("data", (chunk: Buffer) => {
 				buffer += chunk.toString();
 				const lines = buffer.split("\n");
 				buffer = lines.pop() ?? "";
 				for (const line of lines) consume(line);
 			});
-			child.stderr.on("data", (chunk) => (stderr += chunk.toString()));
+			child.stderr.on("data", (chunk: Buffer) => {
+				stderr += chunk.toString();
+			});
 			let forceKillTimer: ReturnType<typeof setTimeout> | undefined;
 			const abort = () => {
 				child.kill("SIGTERM");
-				forceKillTimer = setTimeout(() => child.kill("SIGKILL"), 5_000);
+				forceKillTimer = setTimeout(() => child.kill("SIGKILL"), 5000);
 				forceKillTimer.unref();
 			};
 			const runTimer = setTimeout(() => {
@@ -415,7 +479,7 @@ function createLimiter(limit: number) {
 				};
 				const abort = () => {
 					const index = queue.indexOf(start);
-					if (index >= 0) queue.splice(index, 1);
+					if (index !== -1) queue.splice(index, 1);
 					reject(new Error("Research canceled while queued"));
 				};
 				queue.push(start);
@@ -438,7 +502,7 @@ export function compactToolLine(text: string, background: (line: string) => stri
 			const padding = width > 2 ? 1 : 0;
 			const contentWidth = Math.max(1, width - padding * 2);
 			// Full SGR resets inserted around the ellipsis would clear the background.
-			const content = truncateToWidth(text, contentWidth, "…").replaceAll("\x1b[0m", "");
+			const content = truncateToWidth(text, contentWidth, "…").replaceAll("\u{1B}[0m", "");
 			const fill = " ".repeat(Math.max(0, contentWidth - visibleWidth(content)));
 			return [background(`${" ".repeat(padding)}${content}${fill}${" ".repeat(padding)}`)];
 		},
@@ -448,8 +512,8 @@ export function compactToolLine(text: string, background: (line: string) => stri
 
 function progressText(progress: ResearchProgress | undefined): string {
 	if (!progress) return "Starting…";
-	const counts = `${progress.searches} search${progress.searches === 1 ? "" : "es"} · ${progress.pages} page${progress.pages === 1 ? "" : "s"}`;
 	if (progress.status === "queued") return "Queued";
+	const counts = `${progress.searches} search${progress.searches === 1 ? "" : "es"} · ${progress.pages} page${progress.pages === 1 ? "" : "s"}`;
 	if (progress.status === "done") return counts;
 	const action = progress.status === "reading" ? "Reading" : progress.status === "searching" ? "Searching" : "Starting";
 	return `${action}${progress.current ? ` ${progress.current}` : ""} · ${counts}`;
@@ -465,7 +529,8 @@ export default function researcher(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "researcher",
 		label: "Researcher",
-		description: "Delegate open-web research to an isolated Pi process. Returns only a concise cited brief; the child conversation and fetched pages stay out of the main context. At most three researchers run concurrently.",
+		description:
+			"Delegate open-web research to an isolated Pi process. Returns only a concise cited brief; the child conversation and fetched pages stay out of the main context. At most three researchers run concurrently.",
 		promptSnippet: "Research the public web in an isolated context and return a concise cited brief",
 		promptGuidelines: [
 			"Use researcher for open-web investigation when current or externally sourced information is needed.",
@@ -476,8 +541,8 @@ export default function researcher(pi: ExtensionAPI): void {
 		}),
 		renderShell: "self",
 		async execute(_id, params, signal, onUpdate, ctx) {
-			const model = process.env.PI_RESEARCHER_MODEL ??
-				(ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined);
+			const model =
+				process.env.PI_RESEARCHER_MODEL ?? (ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined);
 			if (!model) throw new Error("Researcher requires an active Pi model");
 			if (limiter.isFull()) {
 				const queued: ResearchProgress = { status: "queued", searches: 0, pages: 0, model };
@@ -498,7 +563,7 @@ export default function researcher(pi: ExtensionAPI): void {
 			}
 		},
 		renderCall(args, theme, context) {
-			const task = args.task?.replace(/\s+/g, " ").trim() || "…";
+			const task = args.task.replaceAll(/\s+/g, " ").trim() || "…";
 			const background = context.isError
 				? (line: string) => theme.bg("toolErrorBg", line)
 				: context.isPartial
@@ -525,10 +590,12 @@ export default function researcher(pi: ExtensionAPI): void {
 				return container;
 			}
 			if (context.isError) {
-				container.addChild(compactToolLine(
-					theme.fg("error", `✗ ${content?.type === "text" ? content.text : "Research failed"}`),
-					background,
-				));
+				container.addChild(
+					compactToolLine(
+						theme.fg("error", `✗ ${content?.type === "text" ? content.text : "Research failed"}`),
+						background,
+					),
+				);
 				container.addChild(compactToolLine("", background));
 				return container;
 			}

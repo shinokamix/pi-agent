@@ -52,4 +52,4 @@ npm install
 pi install .
 ```
 
-Run `npm run check` before publishing changes. Run `/reload` after changing package resources.
+Run `npm run check` before publishing changes. Use `npm run lint:fix` and `npm run format` to apply automatic fixes. Lefthook runs both tools against staged files before each commit. Run `/reload` after changing package resources.

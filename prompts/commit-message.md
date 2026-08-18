@@ -2,6 +2,7 @@
 description: Suggest three commit messages from current changes
 argument-hint: "[ticket or context]"
 ---
+
 Inspect the current branch name, the latest 10 non-merge commit subjects from
 the repository's default branch, and the staged diff. Resolve the default branch
 from `origin/HEAD`, then try `main` or `master`; fall back to the current history.

@@ -1,0 +1,12 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - name: eslint
+      glob: "*.{js,mjs,cjs,ts,mts,cts,tsx}"
+      run: npm exec -- eslint --fix {staged_files}
+      stage_fixed: true
+
+    - name: prettier
+      glob: "*.{js,mjs,cjs,ts,mts,cts,tsx,json,jsonc,md,yml,yaml}"
+      run: npm exec -- prettier --write {staged_files}
+      stage_fixed: true
