@@ -6,18 +6,18 @@ A portable [Pi](https://pi.dev) package that installs my extensions, skills, and
 
 ### Extensions
 
-- `minimal-footer` — shows the model, thinking level, and context usage
-- `researcher` — delegates web research to an isolated Pi process
+- [`minimal-footer`](./extensions/minimal-footer) — shows the model, thinking level, context usage, and extension statuses
+- [`researcher`](./extensions/researcher) — delegates web research to an isolated Pi process and returns only a cited brief
 - [`pi-usage`](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-usage) — adds `/usage` and `/fast`
 
 ### Skills
 
-- `writing-clearly-and-concisely` — improves user-facing prose
+- [`clarity`](./skills/clarity) — writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity
 
 ### Prompts
 
-- `code-review` — reviews a selected set of changes
-- `commit-message` — writes a commit message from staged changes
+- [`code-review`](./prompts/code-review.md) — reviews requested changes for defects and unnecessary complexity
+- [`commit-message`](./prompts/commit-message.md) — suggests three commit messages from staged or unstaged changes
 
 ## Install
 
