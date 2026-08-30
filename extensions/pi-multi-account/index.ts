@@ -390,6 +390,7 @@ import {
 	fetchUsageSnapshot,
 	formatUsageCompact,
 	formatUsageDetails,
+	formatUsageFooter,
 	parseCodexUsageHeaders,
 	providerUsageLabel,
 	usageColor,
@@ -4145,24 +4146,6 @@ export default function piMultiAccount(pi: ExtensionAPI) {
 			: snapshot;
 	}
 
-	/**
-	 * How many OTHER accounts could take over right now.
-	 *
-	 * "This account is nearly out" is only half the information; the half that decides what to do
-	 * is whether anywhere else is ready. Counted from bookkeeping already in memory — no probes,
-	 * no reconciliation — because this runs on a footer timer, not on a decision.
-	 */
-	function readyElsewhereCount(ctx: any, current: string | undefined): number {
-		const now = Date.now();
-		return rotation.filter(
-			(provider) =>
-				provider !== current &&
-				!isInvalidated(provider) &&
-				providerHasUsableAuth(ctx, provider) &&
-				providerRecoveryAt(provider, now) <= now,
-		).length;
-	}
-
 	function updateUsageStatus(ctx: any, provider = ctx?.model?.provider) {
 		if (typeof ctx?.ui?.setStatus !== "function") return;
 		// Footer rendering touches host UI + formatting helpers; never let a render hiccup
@@ -4193,10 +4176,7 @@ export default function piMultiAccount(pi: ExtensionAPI) {
 				return;
 			}
 			const display = displayUsageSnapshot(snapshot);
-			const spare = readyElsewhereCount(ctx, provider);
-			const text = `${formatUsageCompact(display)} | ${
-				spare > 0 ? `+${spare} ready` : "no spare"
-			}`;
+			const text = formatUsageFooter(display);
 			const color =
 				snapshot.family === "qwen"
 					? isInvalidated(provider)

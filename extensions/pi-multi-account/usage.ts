@@ -495,6 +495,21 @@ export function windowLabel(
 	return `${Math.max(1, Math.round(seconds / 3_600))}h`;
 }
 
+export function formatUsageFooter(snapshot: UsageSnapshot): string {
+	const parts = [shortAccount(snapshot.account) ?? providerUsageLabel(snapshot.provider)];
+	if (snapshot.primary) {
+		parts.push(
+			`${windowLabel(snapshot.primary, snapshot.family, "primary")} ${remainingPercent(snapshot.primary)}%`,
+		);
+	}
+	if (snapshot.secondary) {
+		parts.push(
+			`${windowLabel(snapshot.secondary, snapshot.family, "secondary")} ${remainingPercent(snapshot.secondary)}%`,
+		);
+	}
+	return parts.join(" | ");
+}
+
 export function formatUsageCompact(snapshot: UsageSnapshot, now = Date.now()): string {
 	const who = shortAccount(snapshot.account);
 	const parts = [
