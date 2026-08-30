@@ -9,6 +9,7 @@
 	},
 	"files": [
 		"extensions/minimal-footer",
+		"extensions/pi-multi-account",
 		"extensions/researcher/index.ts",
 		"extensions/researcher/README.md",
 		"skills",
@@ -30,18 +31,14 @@
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},
-	"dependencies": {
-		"@narumitw/pi-usage": "0.52.0"
-	},
-	"bundledDependencies": [
-		"@narumitw/pi-usage"
-	],
 	"peerDependencies": {
+		"@earendil-works/pi-ai": "*",
 		"@earendil-works/pi-coding-agent": "*",
 		"@earendil-works/pi-tui": "*",
 		"typebox": "*"
 	},
 	"devDependencies": {
+		"@earendil-works/pi-ai": "^0.84.4",
 		"@earendil-works/pi-coding-agent": "^0.84.2",
 		"@earendil-works/pi-tui": "^0.84.2",
 		"@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
@@ -66,8 +63,8 @@
 	"pi": {
 		"extensions": [
 			"./extensions/minimal-footer",
-			"./extensions/researcher",
-			"./node_modules/@narumitw/pi-usage/src/index.ts"
+			"./extensions/pi-multi-account",
+			"./extensions/researcher"
 		],
 		"skills": [
 			"./skills"
@@ -75,5 +72,8 @@
 		"prompts": [
 			"./prompts"
 		]
+	},
+	"dependencies": {
+		"@bufbuild/protobuf": "2.14.0"
 	}
 }

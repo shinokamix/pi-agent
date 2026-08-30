@@ -7,8 +7,8 @@ A portable [Pi](https://pi.dev) package that installs my extensions, skills, and
 ### Extensions
 
 - [`minimal-footer`](./extensions/minimal-footer) — shows the model, thinking level, context usage, and extension statuses
+- [`pi-multi-account`](./extensions/pi-multi-account) — vendored from v1.20.0; provides multi-account failover, rotation, and quota tracking
 - [`researcher`](./extensions/researcher) — delegates web research to an isolated Pi process and returns only a cited brief
-- [`pi-usage`](https://github.com/narumiruna/pi-extensions/tree/main/packages/pi-usage) — adds `/usage` and `/fast`
 
 ### Skills
 

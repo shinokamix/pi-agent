@@ -15,7 +15,7 @@ const codeFiles = ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"];
 const typescriptFiles = ["**/*.{ts,mts,cts,tsx}"];
 
 export default defineConfig(
-	globalIgnores(["node_modules/**"]),
+	globalIgnores(["node_modules/**", "extensions/pi-multi-account/**"]),
 	{
 		files: codeFiles,
 		extends: [
