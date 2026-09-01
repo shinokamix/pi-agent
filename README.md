@@ -8,7 +8,8 @@ A portable [Pi](https://pi.dev) package that installs my extensions, skills, and
 
 - [`minimal-footer`](./extensions/minimal-footer) — shows the model, thinking level, context usage, and extension statuses
 - [`pi-multi-account`](./extensions/pi-multi-account) — vendored from v1.20.0; provides multi-account failover, rotation, and quota tracking
-- [`researcher`](./extensions/researcher) — delegates web research to an isolated Pi process and returns only a cited brief
+- [`@tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) — runs user-defined subagents and workflows
+- [`pi-web-access`](https://github.com/nicobailon/pi-web-access) — provides web search and public-page fetching
 
 ### Skills
 
@@ -32,6 +33,8 @@ Install the package:
 ```bash
 pi install git:github.com/shinokamix/pi-agent
 ```
+
+The package pins and loads `@tintinweb/pi-subagents` and `pi-web-access` from its own dependencies. Define subagents globally in `~/.pi/agent/agents/` or per project in `.pi/agents/`. To expose only custom agents, set `disableDefaultAgents` to `true` and `fallbackSubagent` to `"none"` in `~/.pi/agent/subagents.json`.
 
 Restart Pi or run `/reload`.
 

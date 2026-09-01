@@ -2,7 +2,6 @@ import comments from "@eslint-community/eslint-plugin-eslint-comments/configs";
 import eslint from "@eslint/js";
 import prettier from "eslint-config-prettier/flat";
 import n from "eslint-plugin-n";
-import noOnlyTests from "eslint-plugin-no-only-tests";
 import regexp from "eslint-plugin-regexp";
 import security from "eslint-plugin-security";
 import sonarjs from "eslint-plugin-sonarjs";
@@ -29,7 +28,6 @@ export default defineConfig(
 			globals: globals.node,
 		},
 		plugins: {
-			"no-only-tests": noOnlyTests,
 			security,
 			sonarjs,
 		},
@@ -64,7 +62,6 @@ export default defineConfig(
 			"no-multi-str": "error",
 			"no-new-func": "error",
 			"no-new-wrappers": "error",
-			"no-only-tests/no-only-tests": "error",
 			"no-promise-executor-return": "error",
 			"no-proto": "error",
 			"no-return-assign": ["error", "always"],
