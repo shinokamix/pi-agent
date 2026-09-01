@@ -1,4 +1,5 @@
-import { lstat, mkdir, readdir, readlink, symlink } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, readdir, readlink, rename, rm, symlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,17 +20,35 @@ async function linkFile(source, target) {
 		}
 	}
 
-	if (targetStats) {
-		if (!targetStats.isSymbolicLink() || resolve(dirname(target), await readlink(target)) !== source) {
-			throw new Error(`Refusing to replace existing config: ${target}`);
-		}
+	const linkTarget = source;
+	const displayTarget = relative(agentDirectory, target);
 
-		console.log(`Already linked ${relative(agentDirectory, target)}`);
+	if (!targetStats) {
+		await symlink(linkTarget, target);
+		console.log(`Linked ${displayTarget}`);
 		return;
 	}
 
-	await symlink(relative(dirname(target), source), target);
-	console.log(`Linked ${relative(agentDirectory, target)}`);
+	if (!targetStats.isSymbolicLink()) {
+		throw new Error(`Refusing to replace existing config: ${target}`);
+	}
+
+	if (resolve(dirname(target), await readlink(target)) === source) {
+		console.log(`Already linked ${displayTarget}`);
+		return;
+	}
+
+	const temporaryTarget = `${target}.tmp-${randomUUID()}`;
+	await symlink(linkTarget, temporaryTarget);
+
+	try {
+		await rename(temporaryTarget, target);
+	} catch (error) {
+		await rm(temporaryTarget, { force: true });
+		throw error;
+	}
+
+	console.log(`Relinked ${displayTarget}`);
 }
 
 await mkdir(targetAgentDirectory, { recursive: true });
