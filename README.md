@@ -1,6 +1,6 @@
 # Pi agent
 
-A portable [Pi](https://pi.dev) package that installs my extensions, skills, and prompts as one unit. It uses supported Pi APIs and includes no credentials or user settings.
+A portable [Pi](https://pi.dev) package that installs my extensions, agents, skills, and configuration as one unit. It uses supported Pi APIs and includes no credentials.
 
 ## Included
 
@@ -25,11 +25,6 @@ A portable [Pi](https://pi.dev) package that installs my extensions, skills, and
 
 - [`clarity`](./skills/clarity) — writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity
 - [`unslop`](./skills/unslop) — removes formulaic AI phrasing from prose
-
-### Prompts
-
-- [`code-review`](./prompts/code-review.md) — reviews requested changes for defects and unnecessary complexity
-- [`commit-message`](./prompts/commit-message.md) — suggests three commit messages from staged or unstaged changes
 
 ## Install
 
