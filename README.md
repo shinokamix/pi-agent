@@ -51,21 +51,10 @@ npm run link:config
 
 The command honors `PI_CODING_AGENT_DIR` and refuses to replace existing files. Restart Pi or run `/reload` after linking.
 
-Update later with:
+Update the package and its bundled resources after changes land in the repository:
 
 ```bash
 pi update --extensions
 ```
 
-## Local development
-
-Clone the repository and install the checkout:
-
-```bash
-git clone https://github.com/shinokamix/pi-agent.git
-cd pi-agent
-npm install
-pi install .
-```
-
-Run `npm run check` before publishing changes. Use `npm run lint:fix` and `npm run format` to apply automatic fixes. Lefthook runs both tools against staged files before each commit. Run `npm run link:config` after cloning the repository or moving its checkout. Run `/reload` after changing package resources.
+Run `/reload` to use the updated resources in the current session.
