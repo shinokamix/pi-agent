@@ -8,13 +8,11 @@ import sonarjs from "eslint-plugin-sonarjs";
 import unicorn from "eslint-plugin-unicorn";
 import { defineConfig, globalIgnores } from "eslint/config";
 import globals from "globals";
-import tseslint from "typescript-eslint";
 
-const codeFiles = ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"];
-const typescriptFiles = ["**/*.{ts,mts,cts,tsx}"];
+const codeFiles = ["**/*.{js,mjs,cjs}"];
 
 export default defineConfig(
-	globalIgnores(["node_modules/**", "extensions/pi-multi-account/**"]),
+	globalIgnores(["node_modules/**"]),
 	{
 		files: codeFiles,
 		extends: [
@@ -98,35 +96,6 @@ export default defineConfig(
 			"unicorn/import-style": "off",
 			"unicorn/no-process-exit": "off",
 			yoda: "error",
-		},
-	},
-	{
-		files: typescriptFiles,
-		extends: [...tseslint.configs.recommendedTypeChecked],
-		languageOptions: {
-			parserOptions: {
-				projectService: true,
-				tsconfigRootDir: import.meta.dirname,
-			},
-		},
-		rules: {
-			"@typescript-eslint/ban-ts-comment": ["error", { "ts-ignore": "allow-with-description" }],
-			"@typescript-eslint/consistent-type-exports": "error",
-			"@typescript-eslint/consistent-type-imports": ["error", { fixStyle: "inline-type-imports" }],
-			"@typescript-eslint/explicit-module-boundary-types": "error",
-			"@typescript-eslint/no-confusing-void-expression": ["error", { ignoreArrowShorthand: true }],
-			"@typescript-eslint/no-deprecated": "error",
-			"@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: true }],
-			"@typescript-eslint/no-non-null-assertion": "error",
-			"@typescript-eslint/no-unnecessary-condition": "error",
-			"@typescript-eslint/no-unnecessary-type-arguments": "error",
-			"@typescript-eslint/no-unnecessary-type-assertion": "error",
-			"@typescript-eslint/prefer-nullish-coalescing": "error",
-			"@typescript-eslint/prefer-optional-chain": "error",
-			"@typescript-eslint/switch-exhaustiveness-check": "error",
-			"@typescript-eslint/use-unknown-in-catch-callback-variable": "error",
-			"no-throw-literal": "off",
-			"@typescript-eslint/only-throw-error": "error",
 		},
 	},
 	prettier,

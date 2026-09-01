@@ -8,8 +8,6 @@
 		"node": "^22.19.0 || >=24.0.0"
 	},
 	"files": [
-		"extensions/minimal-footer",
-		"extensions/pi-multi-account",
 		"skills",
 		"prompts"
 	],
@@ -21,12 +19,11 @@
 		"url": "git+https://github.com/shinokamix/pi-agent.git"
 	},
 	"scripts": {
-		"check": "npm run lint && npm run format:check && npm run typecheck",
+		"check": "npm run lint && npm run format:check",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint . --max-warnings 0",
-		"lint:fix": "eslint . --fix",
-		"typecheck": "tsc --noEmit"
+		"lint:fix": "eslint . --fix"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
@@ -40,7 +37,6 @@
 		"@earendil-works/pi-tui": "^0.84.2",
 		"@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
 		"@eslint/js": "10.0.1",
-		"@types/node": "^24.0.0",
 		"eslint": "10.8.1",
 		"eslint-config-prettier": "10.1.8",
 		"eslint-plugin-n": "18.3.0",
@@ -51,14 +47,11 @@
 		"globals": "17.11.0",
 		"lefthook": "2.1.10",
 		"prettier": "3.9.6",
-		"typebox": "^1.3.9",
-		"typescript": "^5.9.0",
-		"typescript-eslint": "8.67.0"
+		"typebox": "^1.3.9"
 	},
 	"pi": {
 		"extensions": [
-			"./extensions/minimal-footer",
-			"./extensions/pi-multi-account",
+			"./node_modules/pi-multi-account/index.ts",
 			"./node_modules/@tintinweb/pi-subagents/src/index.ts",
 			"./node_modules/pi-web-access/index.ts"
 		],
@@ -72,10 +65,13 @@
 	"dependencies": {
 		"@bufbuild/protobuf": "2.14.0",
 		"@tintinweb/pi-subagents": "0.19.0",
+		"pi-multi-account": "1.20.0",
 		"pi-web-access": "0.27.0"
 	},
 	"bundledDependencies": [
+		"@bufbuild/protobuf",
 		"@tintinweb/pi-subagents",
+		"pi-multi-account",
 		"pi-web-access"
 	]
 }

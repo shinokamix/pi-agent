@@ -6,8 +6,7 @@ A portable [Pi](https://pi.dev) package that installs my extensions, skills, and
 
 ### Extensions
 
-- [`minimal-footer`](./extensions/minimal-footer) — shows the model, thinking level, context usage, and extension statuses
-- [`pi-multi-account`](./extensions/pi-multi-account) — vendored from v1.20.0; provides multi-account failover, rotation, and quota tracking
+- [`pi-multi-account`](https://www.npmjs.com/package/pi-multi-account) — provides multi-account failover, rotation, and quota tracking
 - [`@tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) — runs user-defined subagents and workflows
 - [`pi-web-access`](https://github.com/nicobailon/pi-web-access) — provides web search and public-page fetching
 
@@ -34,7 +33,7 @@ Install the package:
 pi install git:github.com/shinokamix/pi-agent
 ```
 
-The package pins and loads `@tintinweb/pi-subagents` and `pi-web-access` from its own dependencies. Define subagents globally in `~/.pi/agent/agents/` or per project in `.pi/agents/`. To expose only custom agents, set `disableDefaultAgents` to `true` and `fallbackSubagent` to `"none"` in `~/.pi/agent/subagents.json`.
+The package pins and loads `pi-multi-account`, `@tintinweb/pi-subagents`, and `pi-web-access` from its own dependencies. Define subagents globally in `~/.pi/agent/agents/` or per project in `.pi/agents/`. To expose only custom agents, set `disableDefaultAgents` to `true` and `fallbackSubagent` to `"none"` in `~/.pi/agent/subagents.json`.
 
 Restart Pi or run `/reload`.
 

@@ -1,5 +1,2 @@
 package-lock.json
 skills/
-
-# Keep vendored upstream code byte-for-byte comparable.
-extensions/pi-multi-account/
