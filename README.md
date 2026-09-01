@@ -24,6 +24,7 @@ A portable [Pi](https://pi.dev) package that installs my extensions, agents, ski
 ### Skills
 
 - [`clarity`](./skills/clarity) — writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity
+- [`technical-writing`](./skills/technical-writing) — writes and reviews technical documentation using Diátaxis, Google developer style, Simplified Technical English, and Global English
 - [`unslop`](./skills/unslop) — removes formulaic AI phrasing from prose
 
 ## Install
