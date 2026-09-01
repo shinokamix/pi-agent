@@ -10,9 +10,16 @@ A portable [Pi](https://pi.dev) package that installs my extensions, skills, and
 - [`@tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) — runs user-defined subagents and workflows
 - [`pi-web-access`](https://github.com/nicobailon/pi-web-access) — provides web search and public-page fetching
 
+### Agents
+
+- [`researcher`](./agents/researcher.md) — researches web and documentation sources
+- [`scout`](./agents/scout.md) — maps codebases without modifying files
+- [`worker`](./agents/worker.md) — implements focused changes and verifies them
+
 ### Skills
 
 - [`clarity`](./skills/clarity) — writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity
+- [`unslop`](./skills/unslop) — removes formulaic AI phrasing from prose
 
 ### Prompts
 
@@ -35,7 +42,13 @@ pi install git:github.com/shinokamix/pi-agent
 
 The package pins and loads `pi-multi-account`, `@tintinweb/pi-subagents`, and `pi-web-access` from its own dependencies. Define subagents globally in `~/.pi/agent/agents/` or per project in `.pi/agents/`. To expose only custom agents, set `disableDefaultAgents` to `true` and `fallbackSubagent` to `"none"` in `~/.pi/agent/subagents.json`.
 
-Restart Pi or run `/reload`.
+The subagent extension does not discover agent definitions inside Pi packages. From the package checkout, link the included agents into Pi's global agent directory:
+
+```bash
+npm run link:agents
+```
+
+The command honors `PI_CODING_AGENT_DIR` and refuses to replace existing files. Restart Pi or run `/reload` after linking.
 
 Update later with:
 
@@ -54,4 +67,4 @@ npm install
 pi install .
 ```
 
-Run `npm run check` before publishing changes. Use `npm run lint:fix` and `npm run format` to apply automatic fixes. Lefthook runs both tools against staged files before each commit. Run `/reload` after changing package resources.
+Run `npm run check` before publishing changes. Use `npm run lint:fix` and `npm run format` to apply automatic fixes. Lefthook runs both tools against staged files before each commit. Run `npm run link:agents` after cloning the repository or moving its checkout. Run `/reload` after changing package resources.
