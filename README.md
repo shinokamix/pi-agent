@@ -1,31 +1,31 @@
 # Pi agent
 
-A portable [Pi](https://pi.dev) package that installs my extensions, agents, skills, and configuration as one unit. It uses supported Pi APIs and includes no credentials.
+A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and global configuration. It uses supported Pi APIs and includes no credentials.
 
 ## Included
 
 ### Extensions
 
-- [`pi-multi-account`](https://www.npmjs.com/package/pi-multi-account) — provides multi-account failover, rotation, and quota tracking
-- [`@tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) — runs user-defined subagents and workflows
-- [`pi-web-access`](https://github.com/nicobailon/pi-web-access) — provides web search and public-page fetching
+- [`pi-multi-account`](https://www.npmjs.com/package/pi-multi-account) provides multi-account failover, rotation, and quota tracking.
+- [`@tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) runs user-defined subagents and workflows.
+- [`pi-web-access`](https://github.com/nicobailon/pi-web-access) provides web search and public-page fetching.
 
 ### Agents
 
-- [`researcher`](./agents/researcher.md) — researches web and documentation sources
-- [`scout`](./agents/scout.md) — maps codebases without modifying files
-- [`worker`](./agents/worker.md) — implements focused changes and verifies them
+- [`researcher`](./agents/researcher.md) researches web and documentation sources.
+- [`scout`](./agents/scout.md) maps codebases without modifying files.
+- [`worker`](./agents/worker.md) implements focused changes and verifies them.
 
 ### Configuration
 
-- [`AGENTS.md`](./config/AGENTS.md) — defines global implementation discipline
-- [`subagents.json`](./config/subagents.json) — enables only strict custom agents without fallback
+- [`AGENTS.md`](./config/AGENTS.md) defines global implementation discipline.
+- [`subagents.json`](./config/subagents.json) enables only strict custom agents without fallback.
 
 ### Skills
 
-- [`clarity`](./skills/clarity) — writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity
-- [`technical-writing`](./skills/technical-writing) — writes and reviews technical documentation using Diátaxis, Google developer style, Simplified Technical English, and Global English
-- [`unslop`](./skills/unslop) — removes formulaic AI phrasing from prose
+- [`clarity`](./skills/clarity) writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity.
+- [`technical-writing`](./skills/technical-writing) writes and reviews technical documentation using Diátaxis, Google developer style, Simplified Technical English, and Global English.
+- [`unslop`](./skills/unslop) removes formulaic AI phrasing from prose.
 
 ## Install
 
@@ -41,17 +41,52 @@ Install the package:
 pi install git:github.com/shinokamix/pi-agent
 ```
 
-The package pins and loads `pi-multi-account`, `@tintinweb/pi-subagents`, and `pi-web-access` from its own dependencies. Define subagents globally in `~/.pi/agent/agents/` or per project in `.pi/agents/`. To expose only custom agents, set `disableDefaultAgents` to `true` and `fallbackSubagent` to `"none"` in `~/.pi/agent/subagents.json`.
+Pi loads the extensions and skills from the package. Pi packages do not discover agents or global configuration, so link those files separately.
 
-Pi does not discover the included agents or global configuration directly from this package. From the package checkout, link them into Pi's global agent directory:
+The link command creates these symbolic links under `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}`:
+
+- `agents/researcher.md`
+- `agents/scout.md`
+- `agents/worker.md`
+- `AGENTS.md`
+- `subagents.json`
+
+The command never replaces regular files. It updates existing symbolic links to point to this package. If the listed paths contain symbolic links that you want to keep, check them before you run the command.
+
+On macOS or Linux, run:
 
 ```bash
-npm run link:config
+npm --prefix "${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/git/github.com/shinokamix/pi-agent" run link:config
 ```
 
-The command honors `PI_CODING_AGENT_DIR` and refuses to replace existing files. Restart Pi or run `/reload` after linking.
+On Windows, run in PowerShell:
 
-Update the package and its bundled resources after changes land in the repository:
+```powershell
+$agentDir = if ($env:PI_CODING_AGENT_DIR) { $env:PI_CODING_AGENT_DIR } else { Join-Path $HOME ".pi/agent" }
+npm --prefix (Join-Path $agentDir "git/github.com/shinokamix/pi-agent") run link:config
+```
+
+## Verify the installation
+
+On macOS or Linux, inspect the links:
+
+```bash
+agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
+ls -l "$agent_dir/AGENTS.md" "$agent_dir/subagents.json" "$agent_dir/agents/"{researcher,scout,worker}.md
+```
+
+On Windows, inspect them in PowerShell:
+
+```powershell
+$agentDir = if ($env:PI_CODING_AGENT_DIR) { $env:PI_CODING_AGENT_DIR } else { Join-Path $HOME ".pi/agent" }
+Get-Item (Join-Path $agentDir "AGENTS.md"), (Join-Path $agentDir "subagents.json"), (Join-Path $agentDir "agents/researcher.md"), (Join-Path $agentDir "agents/scout.md"), (Join-Path $agentDir "agents/worker.md")
+```
+
+Each path must be a symbolic link into the package checkout. Restart Pi or run `/reload` to load the linked resources.
+
+## Update
+
+Update the package and its included resources after changes land in the repository:
 
 ```bash
 pi update --extensions
