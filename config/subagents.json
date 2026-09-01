@@ -1,0 +1,6 @@
+{
+	"disableDefaultAgents": true,
+	"fallbackSubagent": "none",
+	"strictAgentFiles": true,
+	"backgroundByDefault": false
+}
