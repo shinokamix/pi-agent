@@ -67,15 +67,8 @@
 		]
 	},
 	"dependencies": {
-		"@bufbuild/protobuf": "2.14.0",
 		"@tintinweb/pi-subagents": "0.19.0",
 		"pi-multi-account": "1.20.0",
 		"pi-web-access": "0.27.0"
-	},
-	"bundledDependencies": [
-		"@bufbuild/protobuf",
-		"@tintinweb/pi-subagents",
-		"pi-multi-account",
-		"pi-web-access"
-	]
+	}
 }
