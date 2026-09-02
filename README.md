@@ -18,14 +18,12 @@ A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and g
 
 ### Configuration
 
-- [`AGENTS.md`](./config/AGENTS.md) defines global implementation discipline.
+- [`AGENTS.md`](./config/AGENTS.md) defines global instructions for Pi.
 - [`subagents.json`](./config/subagents.json) enables only strict custom agents without fallback.
 
 ### Skills
 
-- [`clarity`](./skills/clarity) writes and revises user-facing prose with an emphasis on accuracy, structure, and clarity.
 - [`technical-writing`](./skills/technical-writing) writes and reviews technical documentation using Diátaxis, Google developer style, Simplified Technical English, and Global English.
-- [`unslop`](./skills/unslop) removes formulaic AI phrasing from prose.
 
 ## Install
 
