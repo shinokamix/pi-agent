@@ -1,16 +1,19 @@
 ---
 name: scout
-display_name: Scout
-color: cyan
 description: Fast read-only codebase reconnaissance for locating relevant files, tracing data flow, and handing concise context back to another agent.
 tools: read, bash, grep, find, ls
-extensions: false
-skills: false
+extensions:
+skills:
 model: openai-codex/gpt-5.6-luna
 thinking: low
-max_turns: 20
-prompt_mode: replace
-isolated: true
+systemPromptMode: replace
+inheritProjectContext: true
+inheritGlobalContext: false
+inheritSkills: false
+defaultContext: fresh
+async: false
+acceptanceRole: read-only
+completionGuard: false
 ---
 
 # Read-only codebase scout

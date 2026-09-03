@@ -1,15 +1,19 @@
 ---
 name: researcher
-display_name: Researcher
-color: purple
 description: Focused web and documentation researcher that checks primary sources and returns a concise brief with citations.
-tools: read, ext:pi-web-access/web_search, ext:pi-web-access/source_check, ext:pi-web-access/fetch_content, ext:pi-web-access/get_search_content
-extensions: pi-web-access
-skills: false
+tools: read, web_search, source_check, fetch_content, get_search_content
+extensions: ../node_modules/pi-web-access/index.ts
+skills:
 model: openai-codex/gpt-5.6-luna
 thinking: medium
-max_turns: 24
-prompt_mode: replace
+systemPromptMode: replace
+inheritProjectContext: true
+inheritGlobalContext: false
+inheritSkills: false
+defaultContext: fresh
+async: false
+acceptanceRole: read-only
+completionGuard: false
 ---
 
 # Researcher

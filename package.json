@@ -57,16 +57,22 @@
 	"pi": {
 		"extensions": [
 			"./node_modules/pi-multi-account/index.ts",
-			"./node_modules/@tintinweb/pi-subagents/src/index.ts",
+			"./node_modules/pi-subagents/index.ts",
 			"./node_modules/pi-web-access/index.ts"
 		],
 		"skills": [
 			"./skills"
-		]
+		],
+		"subagents": {
+			"agents": [
+				"./agents"
+			]
+		}
 	},
 	"dependencies": {
-		"@tintinweb/pi-subagents": "0.19.0",
 		"pi-multi-account": "1.20.0",
-		"pi-web-access": "0.27.0"
+		"pi-subagents": "0.64.0",
+		"pi-web-access": "0.27.0",
+		"proper-lockfile": "4.1.2"
 	}
 }

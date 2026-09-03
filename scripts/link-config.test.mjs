@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readlink, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readlink, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -31,18 +31,20 @@ describe("link-config", () => {
 		});
 	}
 
-	it("links agents and global configuration", async () => {
+	it("links global instructions and disables builtin subagents", async () => {
+		await writeFile(
+			join(agentDirectory, "settings.json"),
+			'\u{FEFF}{"theme":"dark","subagents":{"modelScope":"all"}}\n',
+		);
 		await run();
 
-		await expect(resolvedLink(join(agentDirectory, "agents", "scout.md"))).resolves.toBe(
-			join(packageRoot, "agents", "scout.md"),
-		);
 		await expect(resolvedLink(join(agentDirectory, "AGENTS.md"))).resolves.toBe(
 			join(packageRoot, "config", "AGENTS.md"),
 		);
-		await expect(resolvedLink(join(agentDirectory, "subagents.json"))).resolves.toBe(
-			join(packageRoot, "config", "subagents.json"),
-		);
+		expect(JSON.parse(await readFile(join(agentDirectory, "settings.json"), "utf8"))).toEqual({
+			theme: "dark",
+			subagents: { modelScope: "all", disableBuiltins: true },
+		});
 	});
 
 	it("is idempotent", async () => {
@@ -50,13 +52,12 @@ describe("link-config", () => {
 
 		const { stdout } = await run();
 
-		expect(stdout).toContain(`Already linked ${join("agents", "scout.md")}`);
 		expect(stdout).toContain("Already linked AGENTS.md");
+		expect(stdout).toContain("Builtin subagents already disabled in settings.json");
 	});
 
 	it("refuses to replace a regular file", async () => {
-		const target = join(agentDirectory, "agents", "researcher.md");
-		await mkdir(dirname(target), { recursive: true });
+		const target = join(agentDirectory, "AGENTS.md");
 		await writeFile(target, "keep me");
 
 		await expect(run()).rejects.toMatchObject({
@@ -65,16 +66,15 @@ describe("link-config", () => {
 		await expect(readFile(target, "utf8")).resolves.toBe("keep me");
 	});
 
-	it("updates an existing symlink", async () => {
-		const target = join(agentDirectory, "agents", "researcher.md");
-		const oldSource = join(agentDirectory, "old-researcher.md");
-		await mkdir(dirname(target), { recursive: true });
-		await writeFile(oldSource, "old");
-		await symlink(oldSource, target);
+	it("refuses to replace an unrelated symlink", async () => {
+		const target = join(agentDirectory, "AGENTS.md");
+		const source = join(agentDirectory, "other-AGENTS.md");
+		await writeFile(source, "keep me");
+		await symlink(source, target);
 
-		await run();
-
-		await expect(resolvedLink(target)).resolves.toBe(join(packageRoot, "agents", "researcher.md"));
-		expect(await resolvedLink(target)).not.toBe(oldSource);
+		await expect(run()).rejects.toMatchObject({
+			stderr: expect.stringContaining(`Refusing to replace existing config: ${target}`),
+		});
+		await expect(resolvedLink(target)).resolves.toBe(source);
 	});
 });

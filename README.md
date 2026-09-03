@@ -7,7 +7,7 @@ A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and g
 ### Extensions
 
 - [`pi-multi-account`](https://www.npmjs.com/package/pi-multi-account) provides multi-account failover, rotation, and quota tracking.
-- [`@tintinweb/pi-subagents`](https://github.com/tintinweb/pi-subagents) runs user-defined subagents and workflows.
+- [`pi-subagents`](https://github.com/nicobailon/pi-subagents) runs user-defined foreground and background subagents and workflows.
 - [`pi-web-access`](https://github.com/nicobailon/pi-web-access) provides web search and public-page fetching.
 
 ### Agents
@@ -19,7 +19,8 @@ A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and g
 ### Configuration
 
 - [`AGENTS.md`](./config/AGENTS.md) defines global instructions for Pi.
-- [`subagents.json`](./config/subagents.json) enables only strict custom agents without fallback.
+- The package exposes its custom agents directly to `pi-subagents`. Their definitions in [`agents`](./agents) are the source of truth.
+- The link command disables built-in subagents in Pi settings, leaving the package's custom agents available by default.
 
 ### Skills
 
@@ -39,17 +40,9 @@ Install the package:
 pi install git:github.com/shinokamix/pi-agent
 ```
 
-Pi loads the extensions and skills from the package. Pi packages do not discover agents or global configuration, so link those files separately.
+Pi loads the extensions, skills, and agents from the installed package. Global instructions still need a symbolic link.
 
-The link command creates these symbolic links under `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}`:
-
-- `agents/researcher.md`
-- `agents/scout.md`
-- `agents/worker.md`
-- `AGENTS.md`
-- `subagents.json`
-
-The command never replaces regular files. It updates existing symbolic links to point to this package. If the listed paths contain symbolic links that you want to keep, check them before you run the command.
+The link command creates an `AGENTS.md` symbolic link under `${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}` and sets `subagents.disableBuiltins` to `true` in Pi's `settings.json`. It preserves unrelated settings and refuses to replace an existing file or unrelated symbolic link.
 
 On macOS or Linux, run:
 
@@ -66,21 +59,21 @@ npm --prefix (Join-Path $agentDir "git/github.com/shinokamix/pi-agent") run link
 
 ## Verify the installation
 
-On macOS or Linux, inspect the links:
+On macOS or Linux, inspect the link:
 
 ```bash
 agent_dir="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
-ls -l "$agent_dir/AGENTS.md" "$agent_dir/subagents.json" "$agent_dir/agents/"{researcher,scout,worker}.md
+ls -l "$agent_dir/AGENTS.md"
 ```
 
-On Windows, inspect them in PowerShell:
+On Windows, inspect the link in PowerShell:
 
 ```powershell
 $agentDir = if ($env:PI_CODING_AGENT_DIR) { $env:PI_CODING_AGENT_DIR } else { Join-Path $HOME ".pi/agent" }
-Get-Item (Join-Path $agentDir "AGENTS.md"), (Join-Path $agentDir "subagents.json"), (Join-Path $agentDir "agents/researcher.md"), (Join-Path $agentDir "agents/scout.md"), (Join-Path $agentDir "agents/worker.md")
+Get-Item (Join-Path $agentDir "AGENTS.md")
 ```
 
-Each path must be a symbolic link into the package checkout. Restart Pi or run `/reload` to load the linked resources.
+`AGENTS.md` must point into the installed package checkout. Restart Pi or run `/reload`, then run `/subagents-doctor` to check agent discovery.
 
 ## Update
 
