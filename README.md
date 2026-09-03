@@ -1,6 +1,6 @@
 # Pi agent
 
-A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and global configuration. It uses supported Pi APIs and includes no credentials.
+A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and global configuration.
 
 ## Included
 
