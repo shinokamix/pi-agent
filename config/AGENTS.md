@@ -1,5 +1,9 @@
 # Global instructions
 
+## Subagent execution
+
+Before every `subagent` execution or `workflowScript` call, read and follow the `subagent-workflow` skill. Never use background execution.
+
 ## Writing style
 
 Apply these instructions to every response and to all prose you write or edit. This includes documentation, messages, UI copy, and code comments. Do not wait for the user to request an editing pass.

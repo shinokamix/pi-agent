@@ -24,6 +24,7 @@ A portable [Pi](https://pi.dev) package for my extensions, agents, skills, and g
 
 ### Skills
 
+- [`subagent-workflow`](./skills/subagent-workflow) runs subagents in the current turn, isolates parallel writers, and cleans up their worktrees.
 - [`technical-writing`](./skills/technical-writing) writes and reviews technical documentation using Diátaxis, Google developer style, Simplified Technical English, and Global English.
 
 ## Install
